@@ -22,6 +22,8 @@ import edu.cmu.graphchi.preprocessing.VertexIdTranslate;
 /**
  * GraphChiContext represents the current state of the computation.
  * This is passed to the update-function.
+ * GraphChiContext表示计算的当前状态。
+ * 这将被传递给更新函数。
  * @see edu.cmu.graphchi.GraphChiProgram
  */
 public class GraphChiContext {
@@ -31,6 +33,7 @@ public class GraphChiContext {
 
     /**
      * @return Current interval of vertices being worked on.
+     * 正在处理的顶点的当前区间。
      */
     public VertexInterval getCurInterval() {
         return curInterval;
@@ -42,6 +45,7 @@ public class GraphChiContext {
 
     /**
      * @return the current iteration (starts from 0)
+     * 当前迭代（从0开始）
      */
     public int getIteration() {
         return iteration;
@@ -53,6 +57,7 @@ public class GraphChiContext {
 
     /**
      * @return  the total number of iterations
+     * 迭代的总次数
      */
     public int getNumIterations() {
         return numIterations;
@@ -64,6 +69,7 @@ public class GraphChiContext {
 
     /**
      * Get the scheduler bound to this computation.
+     * 获取与该计算绑定的调度器。
      * @return scheduler
      */
     public Scheduler getScheduler() {
@@ -76,6 +82,7 @@ public class GraphChiContext {
 
     /**
      * @return the total number of edges in the current graph
+     * 当前图形中的边的总数
      */
     public long getNumEdges() {
         return numEdges;
@@ -87,6 +94,7 @@ public class GraphChiContext {
 
     /**
      * @return the total number of vertices in the current graph
+     * 当前图形中顶点的总数量
      */
     public long getNumVertices() {
         return numVertices;

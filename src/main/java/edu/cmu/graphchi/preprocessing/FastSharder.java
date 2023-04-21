@@ -11,6 +11,7 @@ import edu.cmu.graphchi.engine.auxdata.VertexData;
 import edu.cmu.graphchi.io.CompressedIO;
 import edu.cmu.graphchi.shards.MemoryShard;
 import edu.cmu.graphchi.shards.SlidingShard;
+import lombok.Data;
 import nom.tam.util.BufferedDataInputStream;
 
 import java.io.*;
@@ -50,6 +51,7 @@ import java.util.zip.DeflaterOutputStream;
  *
  * @author Aapo Kyrola
  */
+@Data
 public class FastSharder <VertexValueType, EdgeValueType> {
 
     public enum GraphInputFormat {EDGELIST, ADJACENCY, MATRIXMARKET};
@@ -85,10 +87,14 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      * Constructor
      * @param baseFilename input-file
      * @param numShards the number of shards to be created
-     * @param vertexProcessor user-provided function for translating strings to vertex value type
-     * @param edgeProcessor user-provided function for translating strings to edge value type
+     * @param vertexProcessor user-provided function for translating strings to vertex value type:
+     *                        用户提供的用于将字符串转换为顶点值类型的函数
+     * @param edgeProcessor user-provided function for translating strings to edge value type:
+     *                      用户提供的用于将字符串转换为边值类型的函数
      * @param vertexValConterter translator  byte-arrays to/from vertex-value
+     *                           字节数组到/从顶点值的转换
      * @param edgeValConverter   translator  byte-arrays to/from edge-value
+     *                           字节数组到/从边值的转换
      * @throws IOException  if problems reading the data
      */
     public FastSharder(String baseFilename, int numShards,
@@ -110,6 +116,8 @@ public class FastSharder <VertexValueType, EdgeValueType> {
          * In the first phase of processing, the edges are "shoveled" to
          * the corresponding shards. The interim shards are called "shovel-files",
          * and the final shards are created by sorting the edges in the shovel-files.
+         * 在处理的第一阶段，边被 "铲除 "到相应的碎片中。
+         * 临时碎片被称为 "铲子文件"，而最终的碎片是通过对铲子文件中的边进行分类而创建的。
          * See processShovel()
          */
         shovelStreams = new DataOutputStream[numShards];
@@ -123,6 +131,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
         /** Byte-array template used as a temporary value for performance (instead of
          *  always reallocating it).
+         *  字节数组模板作为临时值使用，以提高性能（而不是总是重新分配）。
          **/
         if (edgeValueTypeBytesToValueConverter != null) {
             valueTemplate =  new byte[edgeValueTypeBytesToValueConverter.sizeOf()];
@@ -145,6 +154,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Adds an edge to the preprocessing.
+     * 在预处理中添加一条边。
      * @param from
      * @param to
      * @param edgeValueToken
@@ -160,6 +170,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
         /* If the from and to ids are same, this entry is assumed to contain value
            for the vertex, and it is passed to the vertexProcessor.
+           如果from和to ids相同，这个边对被认为包含顶点的值，并被传递给vertexProcessor。
          */
 
         if (from == to) {
@@ -188,6 +199,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      * to a temporary internal ids. In the last phase, each vertex-id is assigned its
      * final id. The pretranslation is requried because at this point we do not know
      * the total number of vertices.
+     * 将n条边添加到铲子上。 在这个阶段，顶点-ID被 "预翻译 "为一个临时的内部ID。
+     * 在最后一个阶段，每个顶点的id被分配到最终的id。
+     * 之所以要求预翻译，是因为此时我们还不知道顶点的总数。
      * @param shard
      * @param preTranslatedIdFrom internal from-id
      * @param preTranslatedTo internal to-id
@@ -204,7 +218,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         strm.write(valueTemplate);
     }
 
-
+    // 是允许稀疏度数和顶点数据
     public boolean isAllowSparseDegreesAndVertexData() {
         return allowSparseDegreesAndVertexData;
     }
@@ -213,6 +227,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      * If set true, GraphChi will use sparse file for vertices and the degree data
      * if the number of edges is smaller than the number of vertices. Default false.
      * Note: if you use this, you probably want to set engine.setSkipZeroDegreeVertices(true)
+     *      * 如果设置为 "true"，GraphChi将对顶点和程度数据使用稀疏文件。
+     *      * 如果边的数量小于顶点的数量。默认为false。
+     *      * 注意：如果你使用这个，你可能想设置 engine.setSkipZeroDegreeVertices(true)
      * @param allowSparseDegreesAndVertexData
      */
     public void setAllowSparseDegreesAndVertexData(boolean allowSparseDegreesAndVertexData) {
@@ -221,6 +238,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * We keep separate shovel-file for vertex-values.
+     * 我们为顶点值保留单独的铲子文件。
      * @param shard
      * @param pretranslatedVertexId
      * @param value
@@ -236,6 +254,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Bit arithmetic for packing two 32-bit vertex-ids into one 64-bit long.
+     * 位算术，用于将两个 32 位顶点 ID 打包成一个 64 位长。
      * @param a
      * @param b
      * @return
@@ -244,28 +263,35 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         return ((long) a << 32) + b;
     }
 
+    // 取低位
     static int getFirst(long l) {
         return  (int)  (l >> 32);
     }
 
+    // 取高位
     static int getSecond(long l) {
         return (int) (l & 0x00000000ffffffffL);
     }
 
     /**
      * Final processing after all edges have been received.
+     * 在收到所有边后进行最终处理。
      * @throws IOException
      */
     public void process() throws IOException {
         /* Check if we have enough memory to keep track of
            vertex degree in memory. If not, we need to run a special
            graphchi-program to create the degree-file.
+           检查我们是否有足够的内存来跟踪 顶点程度的内存。
+           如果没有，我们需要运行一个特殊的 graphchi程序来创建度的文件。
          */
 
         // Ad-hoc: require that degree vertices won't take more than 5th of memory
+        // 要求度数顶点占用的内存不超过5％。
         memoryEfficientDegreeCount = Runtime.getRuntime().maxMemory() / 5 <  ((long) maxVertexId) * 8;
 
         if (memoryEfficientDegreeCount) {
+            // 要使用内存效率高，但速度较慢的方法来计算顶点度。
             logger.info("Going to use memory-efficient, but slower, method to compute vertex degrees.");
         }
 
@@ -277,16 +303,19 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         /**
          * Now when we have the total number of vertices known, we can
          * construct the final translator.
+         * 现在，当我们知道了顶点的总数，我们就可以构建最终的翻译器了。
          */
         finalIdTranslate = new VertexIdTranslate((1 + maxVertexId) / numShards + 1, numShards);
 
         /**
          * Store information on how to translate internal vertex id to the original id.
+         * 存储关于如何将内部顶点id转换为原始id的信息。
          */
         saveVertexTranslate();
 
         /**
          * Close / flush each shovel-file.
+         * 关闭/冲刷每个铲子文件。
          */
         for(int i=0; i < numShards; i++) {
             shovelStreams[i].close();
@@ -295,11 +324,13 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
         /**
          *  Store the vertex intervals.
+         *  存储顶点的区间。
          */
         writeIntervals();
 
         /**
          * Process each shovel to create a final shard.
+         * 对每个铲子进行处理，以创造出最后的碎片。
          */
         for(int i=0; i<numShards; i++) {
             processShovel(i);
@@ -308,6 +339,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         /**
          * If we have more vertices than edges, it makes sense to use sparse representation
          * for the auxilliary degree-data and vertex-data files.
+         * 如果我们的顶点比边多，那么对辅助的度数据和顶点数据文件使用稀疏表示是合理的。
          */
         if (allowSparseDegreesAndVertexData) {
             useSparseDegrees = (maxVertexId > numEdges) || "1".equals(System.getProperty("sparsedeg"));
@@ -319,6 +351,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         /**
          * Construct the degree-data file which stores the in- and out-degree
          * of each vertex. See edu.cmu.graphchi.engine.auxdata.DegreeData
+         * 构建度数据文件，存储每个顶点的入度和出度。
          */
         if (!memoryEfficientDegreeCount) {
             writeDegrees();
@@ -328,6 +361,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
         /**
          * Write the vertex-data file.
+         * 编写顶点数据文件
          */
         if (vertexProcessor != null) {
             processVertexValues(useSparseDegrees);
@@ -337,6 +371,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Consteuct the degree-file if we had degrees computed in-memory,
+     * 如果我们在内存中计算了度数，则构建度数文件、
      * @throws IOException
      */
     private void writeDegrees() throws IOException {
@@ -357,6 +392,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         degreeOut.close();
     }
 
+    // 写入区间
     private void writeIntervals() throws IOException{
         FileWriter wr = new FileWriter(ChiFilenames.getFilenameIntervals(baseFilename, numShards));
         for(int j=1; j<=numShards; j++) {
@@ -369,6 +405,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         wr.close();
     }
 
+    // 保存顶点翻译
     private void saveVertexTranslate() throws IOException {
         FileWriter wr = new FileWriter(ChiFilenames.getVertexTranslateDefFile(baseFilename, numShards));
         wr.write(finalIdTranslate.stringRepresentation());
@@ -377,6 +414,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Initializes the vertex-data file. Similar process as sharding for edges.
+     * 初始化顶点数据文件。与边分片类似的过程。
      * @param sparse
      * @throws IOException
      */
@@ -394,7 +432,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
             vertexShovelStreams[p].close();
 
-            /* Read shovel and sort */
+            /* Read shovel and sort
+            * 阅读铲子并排序
+            *  */
             File shovelFile = new File(vertexShovelFileName(p));
             BufferedDataInputStream in = new BufferedDataInputStream(new FileInputStream(shovelFile));
 
@@ -413,7 +453,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
                 System.arraycopy(vertexValueTemplate, 0, vertexValues, valueIdx, sizeOf);
             }
 
-            /* Sort */
+            /* Sort
+            * 源 id 是更高阶的，因此对长整型进行排序将产生正确的结果
+            * */
             sortWithValues(vertexIds, vertexValues, sizeOf);  // The source id is  higher order, so sorting the longs will produce right result
 
             int SUBINTERVAL = 2000000;
@@ -455,6 +497,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Converts a shovel-file into a shard.
+     *将铲锉文件转换为分片。
      * @param shardNum
      * @throws IOException
      */
@@ -475,6 +518,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
         /**
          * Read the edges into memory.
+         * 将边读入内存。
          */
         BufferedDataInputStream in = new BufferedDataInputStream(new FileInputStream(shovelFile));
         for(int i=0; i<shoveled.length; i++) {
@@ -642,7 +686,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
 
     // http://www.algolist.net/Algorithms/Sorting/Quicksort
-    // TODO: implement faster
+    //  分区
     private static int partition(long arr[], byte[] values, int sizeOf, int left, int right)
     {
         int i = left, j = right;
@@ -675,6 +719,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         return i;
     }
 
+    // 快速排序
     static void quickSort(long arr[], byte[] values, int sizeOf, int left, int right) {
         if (left < right) {
             int index = partition(arr, values, sizeOf, left, right);
@@ -695,6 +740,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Execute sharding by reading edges from a inputstream
+     * 通过从输入流读取边来执行分片
      * @param inputStream
      * @param format graph input format
      * @throws IOException
@@ -805,6 +851,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Shard a graph
+     * 对图形进行分片
      * @param inputStream
      * @param format "edgelist" or "adjlist" / "adjacency"
      * @throws IOException
@@ -820,6 +867,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Shard an input graph with edge list format.
+     * 使用边列表格式对输入图进行分片。
      * @param inputStream
      * @throws IOException
      */
@@ -831,6 +879,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      * Compute vertex degrees by running a special graphchi program.
      * This is done only if we do not have enough memory to keep track of
      * vertex degrees in-memory.
+     * 通过运行一个特殊的graphchi程序来计算顶点度数。
+     *  只有当我们没有足够的内存来记录内存中的顶点度时才会这样做。
+     *
      */
     private void computeVertexDegrees() {
         try {
@@ -902,9 +953,12 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     }
 
     public static void main(String[] args) throws Exception {
-        String fileName = args[0];
-        int numShards = Integer.parseInt(args[1]);
-        String conversion = args[2];
+//        String fileName = args[0];
+        String fileName = "F:\\paper\\dataset\\testCA\\CA-GrQc.txt";
+//        int numShards = Integer.parseInt(args[1]);
+        int numShards = 1;
+//        String conversion = args[2];
+        String conversion = "edgelist";
         FastSharder<Integer, Integer> sharder = new FastSharder<Integer, Integer>(fileName, numShards, null, new EdgeProcessor<Integer>() {
             @Override
             public Integer receiveEdge(int from, int to, String token) {
@@ -916,6 +970,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         },
                 new IntConverter(), new IntConverter());
         sharder.shard(new FileInputStream(fileName), conversion);
-
+        System.out.println(sharder.getInDegrees().length);
     }
 }

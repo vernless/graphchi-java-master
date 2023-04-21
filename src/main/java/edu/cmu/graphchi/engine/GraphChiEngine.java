@@ -51,20 +51,30 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     protected BytesToValueConverter<EdgeDataType> edataConverter; // 边转换器
     protected BytesToValueConverter<VertexDataType> vertexDataConverter; //顶点转换器
 
+//    GraphChiContext表示计算的当前状态。
+// * 这将被传递给更新函数。
     protected GraphChiContextInternal chiContext = new GraphChiContextInternal();
+    //管理使用ChiPointers访问的大块数据。 由GraphChi内部使用。
     private DataBlockManager blockManager;
+    //并行执行器
     private ExecutorService parallelExecutor;
+    //加载执行器
     private ExecutorService loadingExecutor;
+    //度数处理程序
     private DegreeData degreeHandler;
+    //GraphChi记录了每个顶点的度数（进出的边数）。顶点数据处理程序
     private VertexData<VertexDataType> vertexDataHandler;
 
-    protected int subIntervalStart, subIntervalEnd;
+    protected int subIntervalStart, subIntervalEnd; //次区间开始 和 结束
 
     protected int maxWindow = 20000000;
+    // 允许调度
     protected boolean enableScheduler = false;
     protected boolean onlyAdjacency = false;
+    // 图中的每个顶点都有一个位，如果该顶点应该被更新，则该位为1，否则为0。
     protected BitsetScheduler scheduler = null;
     protected long nupdates = 0;
+    // 启用确定性的执行
     protected boolean enableDeterministicExecution = true;
     private boolean useStaticWindowSize = false;
     protected long memBudget;
@@ -75,9 +85,9 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
     private static final Logger logger = ChiLogger.getLogger("engine");
 
-    /* Automatic loading of next window */
-    private boolean autoLoadNext = false; // Only for only-adjacency cases!
-    private boolean skipZeroDegreeVertices = false;
+    /* Automatic loading of next window：自动加载下一个窗口 */
+    private boolean autoLoadNext = false; // 仅适用于仅有邻接的情况!
+    private boolean skipZeroDegreeVertices = false; // 跳过零度顶点
 
     private FutureTask<IntervalData> nextWindow;
 

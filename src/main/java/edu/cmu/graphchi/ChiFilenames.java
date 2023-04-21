@@ -26,10 +26,12 @@ public class ChiFilenames {
 
     public static String vertexDataSuffix = "";
 
+    //获取顶点数据的文件名
     public static String getFilenameOfVertexData(String baseFilename, BytesToValueConverter valueConv, boolean sparse) {
         return baseFilename + "." + valueConv.sizeOf() + "Bj.vout" + vertexDataSuffix  + (sparse ? ".sparse" : "");
     }
 
+    // 获取度数数据的文件名
     public static String getFilenameOfDegreeData(String baseFilename, boolean sparse) {
         return baseFilename + "_degsj.bin" + (sparse ? ".sparse" : "");
     }
@@ -38,18 +40,20 @@ public class ChiFilenames {
         return "." + p + "_" + nShards;
     }
 
+    // 获取目录名称分片数据块
     public static String getDirnameShardEdataBlock(String edataShardName, int blocksize) {
         if (CompressedIO.isCompressionEnabled()) {
             edataShardName += ".Z.";
         }
         return edataShardName + "_blockdir_" + blocksize;
     }
-
+    // 获取文件名分片数据块
     public static String getFilenameShardEdataBlock(String edataShardname, int blockId, int blocksize) {
 
         return getDirnameShardEdataBlock(edataShardname, blocksize) + "/" + blockId;
     }
 
+    // 获取分片数据大小
     public static int getShardEdataSize(String edataShardname) throws IOException {
         String fname = edataShardname + ".size";
         BufferedReader rd = new BufferedReader(new FileReader(new File(fname)));
@@ -58,25 +62,32 @@ public class ChiFilenames {
         return Integer.parseInt(ln);
     }
 
+    // 获取文件名分片数据
     public static String getFilenameShardEdata(String baseFilename, BytesToValueConverter valueConv, int p, int nShards) {
         return baseFilename + ".edata_java.e" + valueConv.sizeOf() + "B." + p + "_" + nShards;
     }
 
+    // 获取文件名分片调整
     public static String getFilenameShardsAdj(String baseFilename, int p, int nShards) {
         return baseFilename + ".edata_java." + p + "_" + nShards + ".adj";
     }
 
+    // 获取文件名间隔
     public static String getFilenameIntervals(String baseFilename, int nShards) {
         return baseFilename + "." + nShards + ".intervalsjava";
     }
 
+    // 获取顶点平移定义文件
     public static String getVertexTranslateDefFile(String baseFilename, int nshards) {
         return baseFilename + "." + nshards + ".vtranslate";
     }
 
+    // 获取块数量
     public static int getBlocksize(int sizeOf) {
         int blocksize = 4096 * 1024;
-        while (blocksize % sizeOf != 0) blocksize++;
+        while (blocksize % sizeOf != 0) {
+            blocksize++;
+        }
         assert(blocksize % sizeOf == 0);
         return blocksize;
     }
@@ -96,6 +107,7 @@ public class ChiFilenames {
         }
     }
 
+    // 加载间隔
     public static ArrayList<VertexInterval> loadIntervals(String baseFilename, int nShards)  throws FileNotFoundException, IOException {
         String intervalFilename = ChiFilenames.getFilenameIntervals(baseFilename, nShards);
 
@@ -112,6 +124,7 @@ public class ChiFilenames {
     }
 
 
+    // 顶点数目
     public static int numVertices(String baseFilename, int numShards) throws IOException {
         ArrayList<VertexInterval> intervals = loadIntervals(baseFilename, numShards);
         return intervals.get(intervals.size() - 1).getLastVertex() + 1;

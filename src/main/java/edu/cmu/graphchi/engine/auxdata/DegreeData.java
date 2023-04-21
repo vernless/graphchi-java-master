@@ -30,6 +30,12 @@ import java.io.IOException;
  * of the edges a time. This supports both sparse and dense representation
  * of the degrees. This class should not be needed by application writers, and
  * is only used internally by GraphChi.
+ *
+ * GraphChi记录了每个顶点的度数（进出的边数）。
+ * 这个类允许通过每次加载一个窗口来有效地访问顶点度数
+ * 每次加载一个窗口的边。这支持稀疏和密集的表示法度的表示。
+ * 这个类不应该被应用程序的作者所需要，而只在GraphChi内部使用。
+ * 只在GraphChi内部使用。
  * @author Aapo Kyrola
  */
 public class DegreeData {

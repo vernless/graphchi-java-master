@@ -13,6 +13,11 @@ import java.io.IOException;
  * trick, we do not need to first count the edge distribution and divide
  * the shard intervals based on that but can skip that step. As a downside,
  * the vertex ids need to be translated back and forth.
+ * 将顶点从原始id翻译成内部id，反之亦然。
+ * GraphChi将原始id转化为 "模移 "id，从而有效地洗刷了顶点id。
+ * 这可能会导致顶点ID空间上的边缘分布平衡，从而使每个分片中的边缘数量大致相等。
+ * 有了这个技巧，我们就不需要首先计算边分布，并在此基础上划分分片区间，
+ * 而是可以跳过这一步。缺点是，顶点ID需要来回转换。
  * @author Aapo Kyrola, akyrola@cs.cmu.edu
  */
 public class VertexIdTranslate {
@@ -31,6 +36,7 @@ public class VertexIdTranslate {
 
     /**
      * Translates original vertex id to internal vertex id
+     * 将原始顶点 ID 转换为内部顶点 ID
      * @param origId
      * @return
      */
@@ -40,6 +46,7 @@ public class VertexIdTranslate {
 
     /**
      * Translates internal id to original id
+     * 将内部 ID 转换为原始 ID
      * @param transId
      * @return
      */
@@ -61,6 +68,7 @@ public class VertexIdTranslate {
         return "vertex_interval_length=" + vertexIntervalLength + "\nnumShards=" + numShards + "\n";
     }
 
+    // 读取数据
     public static VertexIdTranslate fromString(String s) {
        if ("none".equals(s)) {
            return identity();
@@ -76,7 +84,9 @@ public class VertexIdTranslate {
             }
        }
 
-        if (vertexIntervalLength < 0 || numShards < 0) throw new RuntimeException("Illegal format: " + s);
+        if (vertexIntervalLength < 0 || numShards < 0) {
+            throw new RuntimeException("Illegal format: " + s);
+        }
 
         return new VertexIdTranslate(vertexIntervalLength, numShards);
     }
