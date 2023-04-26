@@ -45,6 +45,7 @@ public class VertexInterval {
         this.lastVertex = lastVertex;
     }
 
+    @Override
     public String toString() {
         return "Interval " + firstVertex + " -- " + lastVertex;
     }

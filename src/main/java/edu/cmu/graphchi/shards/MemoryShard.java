@@ -133,7 +133,9 @@ public class MemoryShard <EdgeDataType> {
         if (adjData == null) {
             compressedInput = loadAdj();
 
-            if (!onlyAdjacency) loadEdata();
+            if (!onlyAdjacency) {
+                loadEdata();
+            }
         }
 
         TimerContext _timer = loadVerticesTimers.time();
@@ -250,8 +252,9 @@ public class MemoryShard <EdgeDataType> {
                 while (--n >= 0) {
                     int target = Integer.reverseBytes(adjInput.readInt());
                     adjOffset += 4;
-                    if (!(target >= rangeStart && target <= rangeEnd))
+                    if (!(target >= rangeStart && target <= rangeEnd)) {
                         throw new IllegalStateException("Target " + target + " not in range!");
+                    }
                     if (vertex != null && !disableOutEdges) {
                         vertex.addOutEdge((onlyAdjacency ? -1 : blockIds[edataPtr / blocksize]), (onlyAdjacency ? -1 : edataPtr % blocksize), target);
                     }

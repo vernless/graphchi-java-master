@@ -65,6 +65,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     private DataOutputStream[] shovelStreams;
     private DataOutputStream[] vertexShovelStreams;
 
+    // 用来计算顶点的最大值，并不一定是顶点的数目
     private int maxVertexId = 0;
 
     private int[] inDegrees;
@@ -123,7 +124,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         shovelStreams = new DataOutputStream[numShards];
         vertexShovelStreams = new DataOutputStream[numShards];
         for(int i=0; i < numShards; i++) {
-            shovelStreams[i] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(shovelFilename(i))));
+            shovelStreams[i] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(new File(shovelFilename(i)))));
             if (vertexProcessor != null) {
                 vertexShovelStreams[i] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(vertexShovelFileName(i))));
             }
@@ -263,12 +264,12 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         return ((long) a << 32) + b;
     }
 
-    // 取低位
+    // 取低位:from
     static int getFirst(long l) {
         return  (int)  (l >> 32);
     }
 
-    // 取高位
+    // 取高位:to
     static int getSecond(long l) {
         return (int) (l & 0x00000000ffffffffL);
     }
@@ -289,7 +290,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         // Ad-hoc: require that degree vertices won't take more than 5th of memory
         // 要求度数顶点占用的内存不超过5％。
         memoryEfficientDegreeCount = Runtime.getRuntime().maxMemory() / 5 <  ((long) maxVertexId) * 8;
-
         if (memoryEfficientDegreeCount) {
             // 要使用内存效率高，但速度较慢的方法来计算顶点度。
             logger.info("Going to use memory-efficient, but slower, method to compute vertex degrees.");
@@ -305,7 +305,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
          * construct the final translator.
          * 现在，当我们知道了顶点的总数，我们就可以构建最终的翻译器了。
          */
+        System.out.println("顶点总数：" + (1 + maxVertexId));
         finalIdTranslate = new VertexIdTranslate((1 + maxVertexId) / numShards + 1, numShards);
+        //finalIdTranslate = new VertexIdTranslate((1 + maxVertexId) / numShards, numShards);
 
         /**
          * Store information on how to translate internal vertex id to the original id.
@@ -503,6 +505,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      */
     private void processShovel(int shardNum) throws IOException {
         File shovelFile = new File(shovelFilename(shardNum));
+       // System.out.println(shovelFile.length());
         int sizeOf = (edgeValueTypeBytesToValueConverter != null ? edgeValueTypeBytesToValueConverter.sizeOf() : 0);
 
         long[] shoveled = new long[(int) (shovelFile.length() / (8 + sizeOf))];
@@ -512,12 +515,13 @@ public class FastSharder <VertexValueType, EdgeValueType> {
             throw new RuntimeException("Too big shard size, shovel length was: " + shoveled.length + " max: " + 500000000);
         }
         byte[] edgeValues = new byte[shoveled.length * sizeOf];
-
-
         logger.info("Processing shovel " + shardNum);
 
         /**
          * Read the edges into memory.
+         *  0 1
+         *  0 1
+         *  ......
          * 将边读入内存。
          */
         BufferedDataInputStream in = new BufferedDataInputStream(new FileInputStream(shovelFile));
@@ -529,6 +533,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
             int newFrom = finalIdTranslate.forward(preIdTranslate.backward(from));
             int newTo = finalIdTranslate.forward(preIdTranslate.backward(to));
+            //System.out.println("newFrom:" + newFrom + "  -------  " + "newTo:" + newTo);
             shoveled[i] = packEdges(newFrom, newTo);
 
             /* Edge value */
@@ -548,8 +553,11 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
         logger.info("Processing shovel " + shardNum + " ... sorting");
 
-        /* Sort the edges */
-        sortWithValues(shoveled, edgeValues, sizeOf);  // The source id is  higher order, so sorting the longs will produce right result
+        /* Sort the edges
+        * 源 id 是更高阶的，因此对长整型进行排序将产生正确的结果
+        * The source id is  higher order, so sorting the longs will produce right result
+        * */
+        sortWithValues(shoveled, edgeValues, sizeOf);
 
         logger.info("Processing shovel " + shardNum + " ... writing shard");
 
@@ -557,6 +565,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         /*
          Now write the final shard in a compact form. Note that there is separate shard
          for adjacency and the edge-data. The edge-data is split and stored into 4-megabyte compressed blocks.
+         现在以紧凑的形式编写最终分片。
+         请注意，邻接和边数据有单独的分片。
+         边数据被拆分并存储为 4 MB 的压缩块。
          */
 
         /**
@@ -570,12 +581,13 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         int istart = 0;
         int edgeCounter = 0;
         int lastIndexFlush = 0;
-        int edgesPerIndexEntry = 4096; // Tuned for fast shard queries
+        int edgesPerIndexEntry = 4096; // Tuned for fast shard queries 为快速分片查询进行了调整
 
         for(int i=0; i <= shoveled.length; i++) {
             int from = (i < shoveled.length ? getFirst(shoveled[i]) : -1);
 
             if (from != curvid) {
+               // System.out.println("from:" + from);
                 /* Write index */
                 if (edgeCounter - lastIndexFlush >= edgesPerIndexEntry) {
                     indexOut.writeInt(curvid);
@@ -629,7 +641,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
          * Step 2: EDGE DATA
          */
 
-        /* Create compressed edge data directories */
+        /* Create compressed edge data directories
+        * 创建压缩的边数据目录
+        * */
         if (sizeOf > 0) {
             int blockSize = ChiFilenames.getBlocksize(sizeOf);
             String edataFileName = ChiFilenames.getFilenameShardEdata(baseFilename, new BytesToValueConverter() {
@@ -658,7 +672,9 @@ public class FastSharder <VertexValueType, EdgeValueType> {
             sizeWr.write(edatasize + "");
             sizeWr.close();
 
-            /* Create compressed blocks */
+            /* Create compressed blocks
+            * 创建压缩块
+            * */
             int blockIdx = 0;
             int edgeIdx= 0;
             for(long idx=0; idx < edatasize; idx += blockSize) {
@@ -740,7 +756,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     /**
      * Execute sharding by reading edges from a inputstream
-     * 通过从输入流读取边来执行分片
+     * 通过从输入流读取边来执行分片，读取数据
      * @param inputStream
      * @param format graph input format
      * @throws IOException
@@ -954,7 +970,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
 
     public static void main(String[] args) throws Exception {
 //        String fileName = args[0];
-        String fileName = "F:\\paper\\dataset\\testCA\\CA-GrQc.txt";
+        String fileName = "F:\\paper\\dataset\\testCA\\CA_test.txt";
 //        int numShards = Integer.parseInt(args[1]);
         int numShards = 1;
 //        String conversion = args[2];
@@ -970,6 +986,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         },
                 new IntConverter(), new IntConverter());
         sharder.shard(new FileInputStream(fileName), conversion);
-        System.out.println(sharder.getInDegrees().length);
+        //System.out.println(sharder.getInDegrees().length);
     }
 }

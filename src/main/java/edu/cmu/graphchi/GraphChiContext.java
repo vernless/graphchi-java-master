@@ -82,7 +82,7 @@ public class GraphChiContext {
 
     /**
      * @return the total number of edges in the current graph
-     * 当前图形中的边的总数
+     * 当前图中的边的总数
      */
     public long getNumEdges() {
         return numEdges;

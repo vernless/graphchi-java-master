@@ -60,7 +60,8 @@ public class CompressedIO {
         }
     }
 
-    /* Note: I realize this is not a good way to manage compression level (should not be part of the utility class). FIXME */
+    /* Note: I realize this is not a good way to manage compression level (should not be part of the utility class)
+    我意识到这不是一个管理压缩级别的好方法（不应该是实用类的一部分）。. FIXME */
     public static void disableCompression() {
         COMPRESSION_ENABLED = false;
     }

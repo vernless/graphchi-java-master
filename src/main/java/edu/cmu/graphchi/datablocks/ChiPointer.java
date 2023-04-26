@@ -18,6 +18,7 @@ package edu.cmu.graphchi.datablocks;
 
 /**
  * Internal representation for referring to a chunk of bytes.
+ * 指向一个字节块的内部表示。
  * Emulates C/C++ pointers.
  */
 public class ChiPointer {

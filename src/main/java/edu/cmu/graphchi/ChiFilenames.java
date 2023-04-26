@@ -72,7 +72,7 @@ public class ChiFilenames {
         return baseFilename + ".edata_java." + p + "_" + nShards + ".adj";
     }
 
-    // 获取文件名间隔
+    // 获取文件名分区
     public static String getFilenameIntervals(String baseFilename, int nShards) {
         return baseFilename + "." + nShards + ".intervalsjava";
     }
@@ -116,7 +116,8 @@ public class ChiFilenames {
         int lastId = 0;
         ArrayList<VertexInterval> intervals = new ArrayList<VertexInterval>(nShards);
         while((line = rd.readLine()) != null) {
-            int vid = Integer.parseInt(line);
+            int vid = Integer.parseInt(line) - 1;
+            //int vid = Integer.parseInt(line)/;
             intervals.add(new VertexInterval(lastId, vid));
             lastId = vid + 1;
         }

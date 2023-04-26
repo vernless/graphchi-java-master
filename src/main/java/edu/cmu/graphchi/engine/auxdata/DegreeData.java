@@ -64,6 +64,7 @@ public class DegreeData {
 
     /**
      * Load degrees for an interval of vertices
+     * 为一个顶点的区间加载度数
      * @param _vertexSt first vertex
      * @param _vertexEn last vertex (inclusive)
      * @throws IOException
@@ -93,8 +94,10 @@ public class DegreeData {
         if (!sparse) {
             int adjLen = (int) (dataSize - len);
 
-            if (adjLen == 0) return;
-            long dataStart =  (long)  vertexSt * 4l * 2l + len;
+            if (adjLen == 0) {
+                return;
+            }
+            long dataStart =  (long)  vertexSt * 4L * 2L + len;
 
             try {
                 degreeFile.seek(dataStart);
@@ -133,6 +136,7 @@ public class DegreeData {
     /**
      * Returns degree of a vertex. The vertex must be in the previous
      * interval loaded using load().
+     * 返回一个顶点的等级。该顶点必须是在使用load()加载的前一个区间内。
      * @param vertexId id of the vertex
      * @return  VertexDegree object
      */

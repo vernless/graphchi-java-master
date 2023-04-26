@@ -65,7 +65,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     //GraphChi记录了每个顶点的度数（进出的边数）。顶点数据处理程序
     private VertexData<VertexDataType> vertexDataHandler;
 
-    protected int subIntervalStart, subIntervalEnd; //次区间开始 和 结束
+    protected int subIntervalStart, subIntervalEnd; //区间开始 和 结束
 
     protected int maxWindow = 20000000;
     // 允许调度
@@ -77,9 +77,11 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     // 启用确定性的执行
     protected boolean enableDeterministicExecution = true;
     private boolean useStaticWindowSize = false;
+    // 内存预算
     protected long memBudget;
+    // 顶点ID翻译
     protected VertexIdTranslate vertexIdTranslate;
-
+    // 是否有顶点集合、边集合转换器
     protected boolean hasSetVertexDataConverter = false, hasSetEdgeDataConverter = false;
 
 
@@ -91,20 +93,28 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
     private FutureTask<IntervalData> nextWindow;
 
-    /* Metrics */
+    /* Metrics 度量衡：时间 */
+    // 加载
     private final Timer loadTimer = Metrics.defaultRegistry().newTimer(GraphChiEngine.class, "shard-loading", TimeUnit.SECONDS, TimeUnit.MINUTES);
+    // 执行
     private final Timer executionTimer = Metrics.defaultRegistry().newTimer(GraphChiEngine.class, "execute-updates", TimeUnit.SECONDS, TimeUnit.MINUTES);
+    // Future 视为保存结果的对象–它可能暂时不保存结果，但将来会保存（一旦Callable 返回）。
+    // Future 基本上是主线程可以跟踪进度以及其他线程的结果的一种方式。
+    // 等待结果
     private final Timer waitForFutureTimer = Metrics.defaultRegistry().newTimer(GraphChiEngine.class, "wait-for-future", TimeUnit.SECONDS, TimeUnit.MINUTES);
+    // 初始化顶点
     private final Timer initVerticesTimer = Metrics.defaultRegistry().newTimer(GraphChiEngine.class, "init-vertices", TimeUnit.SECONDS, TimeUnit.MINUTES);
+    // 确定下一个窗口
     private final Timer determineNextWindowTimer = Metrics.defaultRegistry().newTimer(GraphChiEngine.class, "det-next-window", TimeUnit.SECONDS, TimeUnit.MINUTES);
 
-
+    // 修改内边/外边
     protected boolean modifiesInedges = true, modifiesOutedges = true;
+    // 禁用内边/外边
     private boolean disableInEdges = false, disableOutEdges = false;
 
 
     /**
-     * Constructor
+     * Constructor  构造函数
      * @param baseFilename input-file name
      * @param nShards number of shards
      * @throws FileNotFoundException
@@ -135,12 +145,14 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
     /**
      * Access the intervals for shards.
+     * 访问分片的区间。
      * @return
      */
     public ArrayList<VertexInterval> getIntervals() {
         return intervals;
     }
 
+    // 加载区间
     protected void loadIntervals() throws FileNotFoundException, IOException {
         intervals = ChiFilenames.loadIntervals(baseFilename, nShards);
     }
@@ -150,6 +162,8 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
      * Set the memorybudget in megabytes. Default is JVM's max memory / 4.
      * Memory budget affects the number of vertices loaded into memory at
      * any time.
+     * 以兆字节为单位设置内存预算。默认值为 JVM 的最大内存 / 4。
+     * 内存预算随时影响加载到内存中的顶点数。
      * @param mb
      */
     public void setMemoryBudgetMb(long mb) {
@@ -157,6 +171,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     }
 
     /**
+     * 获取当前的内存预算，单位为 bytes
      * @return the current memory budget in <b>bytes</b>.
      */
     public long getMemoryBudget() {
@@ -167,6 +182,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     /**
      * You can instruct the engine to automatically ignore vertices that do not
      * have any edges. By default this is <b>false</b>.
+     * 您可以指示引擎自动忽略没有任何边的顶点。默认情况下，这是错误的。
      * @param skipZeroDegreeVertices
      */
     public void setSkipZeroDegreeVertices(boolean skipZeroDegreeVertices) {
@@ -175,13 +191,16 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
     /**
      * @return the number of vertices in the current graph
+     * 当前图形中顶点的数量
      */
     public int numVertices() {
-        return 1 + intervals.get(intervals.size() - 1).getLastVertex();
+        //return 1 + intervals.get(intervals.size() - 1).getLastVertex();
+        return intervals.get(intervals.size() - 1).getLastVertex() + 1;
     }
 
     /**
      * For definition of "sliding shards", see http://code.google.com/p/graphchi/wiki/IntroductionToGraphChi
+     * 初始化滑动分片
      * @throws IOException
      */
     protected void initializeSlidingShards() throws IOException {
@@ -203,12 +222,12 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
     /**
      * For definition of "memory shards", see http://code.google.com/p/graphchi/wiki/IntroductionToGraphChi
+     * 对于“内存分片”的定义
      * @throws IOException
      */
     protected MemoryShard<EdgeDataType> createMemoryShard(int intervalStart, int intervalEnd, int execInterval) {
         String edataFilename = (onlyAdjacency ? null : ChiFilenames.getFilenameShardEdata(baseFilename, edataConverter, execInterval, nShards));
         String adjFilename = ChiFilenames.getFilenameShardsAdj(baseFilename, execInterval, nShards);
-
         MemoryShard<EdgeDataType> newMemoryShard = new MemoryShard<EdgeDataType>(edataFilename, adjFilename,
                 intervals.get(execInterval).getFirstVertex(),
                 intervals.get(execInterval).getLastVertex());
@@ -222,6 +241,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     /**
      * Runs the GraphChi program for given number of iterations. <b>Note:</b> Prior to calling this,
      * you must have set the edge-data and vertex-data converters:
+     * 运行给定迭代次数的 GraphChi 程序。注意：在调用此函数之前，必须设置边数据和顶点数据转换器：
      *   setEdataConverter()
      *   setVertexDataConverter()
      * @param program yoru GraphChi program
@@ -256,16 +276,18 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         long startTime = System.currentTimeMillis();
         initializeSlidingShards();
 
+        // false 默认为false
         if (enableScheduler) {
             initializeScheduler();
             chiContext.setScheduler(scheduler);
             scheduler.addAllTasks();
             logger.info("Using scheduler!");
         }  else {
+            // 设置模拟调度程序
             chiContext.setScheduler(new MockScheduler());
         }
 
-
+        // 下面两个的条件都是false
         if (disableInEdges) {
             ChiVertex.disableInedges = true;
         }
@@ -273,7 +295,8 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             ChiVertex.disableOutedges = true;
         }
 
-        /* Initialize vertex-data handler */
+        /* Initialize vertex-data handler
+        * 初始化顶点数据处理程序 */
         if (vertexDataConverter != null) {
             vertexDataHandler = new VertexData<VertexDataType>(numVertices(), baseFilename, vertexDataConverter, true);
             vertexDataHandler.setBlockManager(blockManager);
@@ -282,18 +305,23 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         chiContext.setNumEdges(numEdges());
 
 
+        // 循环次数
         for(int iter=0; iter < niters; iter++) {
-            /* Wait for executor have finished all writes */
+            /* Wait for executor have finished all writes
+            * 等待执行者完成所有写入工作 */
             while (!blockManager.empty()) {
                 try {
+                    System.out.println("go to sleep");
                     Thread.sleep(50);
                 } catch (InterruptedException ie) {}
             }
             blockManager.reset();
             chiContext.setIteration(iter);
             chiContext.setNumVertices(numVertices());
+            // PageRank除了 update方法外，其他的方法都无意义
             program.beginIteration(chiContext);
 
+            // scheduler is null
             if (scheduler != null) {
                 if (iter > 0 && !scheduler.hasTasks()) {
                     logger.info("No new tasks to run. Terminating.");
@@ -305,20 +333,25 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             for(int execInterval=0; execInterval < nShards; ++execInterval) {
                 int intervalSt = intervals.get(execInterval).getFirstVertex();
                 int intervalEn = intervals.get(execInterval).getLastVertex();
-
+                // 开始输出
+                logger.info("start--------------------------------------------");
                 logger.info((System.currentTimeMillis() - startTime) * 0.001 + "s: iteration: " + iter + ", interval: " + intervalSt + " -- " + intervalEn);
 
+                // false
                 if (program instanceof PigGraphChiBase) {
                     ((PigGraphChiBase) program).setStatusString("GraphChi iteration " + iter + " / " + (niters - 1) + ";" +
                             "  vertex interval:" + intervalSt + " -- " + intervalEn);
 
                 }
-
+                // PageRank除了 update方法外，其他的方法都无意义
                 program.beginInterval(chiContext, intervals.get(execInterval));
 
                 MemoryShard<EdgeDataType> memoryShard = null;
+
+                // 下面可以执行
                 if (!disableInEdges) {
                     if (!onlyAdjacency || !autoLoadNext || nextWindow == null) {
+
                         if (!disableOutEdges) {
                             slidingShards.get(execInterval).flush();     // MESSY!
                         }
@@ -327,16 +360,18 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                         memoryShard = null;
                     }
                 }
-
+                // 开始顶点：intervalSt
                 subIntervalStart = intervalSt;
-
+                /// 结束顶点：intervalEn
                 while (subIntervalStart <= intervalEn) {
                     int adjMaxWindow = maxWindow;
+                    // false
                     if (Integer.MAX_VALUE - subIntervalStart < maxWindow) {
                         adjMaxWindow = Integer.MAX_VALUE - subIntervalStart - 1;
                     }
 
                     if (anyVertexScheduled(subIntervalStart, Math.min(intervalEn, subIntervalStart + adjMaxWindow ))) {
+                        // 顶点数组
                         ChiVertex<VertexDataType, EdgeDataType>[] vertices = null;
                         int vertexBlockId = -1;
 
@@ -352,17 +387,14 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                             int nvertices = subIntervalEnd - subIntervalStart + 1;
 
                             logger.info("Subinterval:: " + subIntervalStart + " -- " + subIntervalEnd + " (iteration " + iter + ")");
-
                             vertices = new ChiVertex[nvertices];
-
                             logger.info("Init vertices...");
                             vertexBlockId = initVertices(nvertices, subIntervalStart, vertices);
-
                             logger.info("Loading...");
                             long t0 = System.currentTimeMillis();
                             loadBeforeUpdates(execInterval, vertices, memoryShard, subIntervalStart, subIntervalEnd);
                             logger.info("Load took: " + (System.currentTimeMillis() - t0) + "ms");
-                        } else {
+                        } else {// 不执行
                             /* This is a mess! */
                             try {
                                 long tf = System.currentTimeMillis();
@@ -384,7 +416,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                                 throw new RuntimeException(err);
                             }
                         }
-
+                        // 不执行
                         if (autoLoadNext) {
                             /* Start a future for loading the next window */
                             adjMaxWindow = maxWindow;
@@ -412,24 +444,29 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
                         }
                         /* Clear scheduler bits */
+                        // scheduler is null
                         if (scheduler != null) {
+                            // scheduler is null
                             scheduler.removeTasks(subIntervalStart, subIntervalEnd);
                         }
 
                         chiContext.setCurInterval(new VertexInterval(subIntervalStart, subIntervalEnd));
+
+                        // PageRank除了 update方法外，其他的方法都无意义
                         program.beginSubInterval(chiContext, new VertexInterval(subIntervalStart, subIntervalEnd));
 
                         long t1 = System.currentTimeMillis();
                         execUpdates(program, vertices);
                         logger.info("Update exec: " + (System.currentTimeMillis() - t1) + " ms.");
 
-                        // Write vertices (async)
+                        // Write vertices (async) 写下顶点
                         final int _firstVertex = subIntervalStart;
                         final int _blockId = vertexBlockId;
                         parallelExecutor.submit(new Runnable() {
                             @Override
                             public void run() {
                                 try {
+                                    // 输出vertex-data releaseAndCommit - t:17 信息:   Vertex data write:
                                     vertexDataHandler.releaseAndCommit(_firstVertex, _blockId);
                                 } catch (IOException ioe) {
                                     ioe.printStackTrace();
@@ -438,7 +475,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                         });
 
                         subIntervalStart = subIntervalEnd + 1;
-
+                        // PageRank除了 update方法外，其他的方法都无意义
                         program.endSubInterval(chiContext, new VertexInterval(subIntervalStart, subIntervalEnd));
 
                     }  else {
@@ -464,6 +501,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                 shard.flush();
                 shard.setOffset(0, 0, 0);
             }
+            // PageRank除了 update方法外，其他的方法都无意义
             program.endIteration(chiContext);
         }    // Iterations
 
@@ -477,6 +515,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         logger.info("Updates: " + nupdates);
     }
 
+    // 任何顶点计划
     private boolean anyVertexScheduled(int subIntervalStart, int lastVertex) {
         if (!enableScheduler) {
             return true;
@@ -490,18 +529,22 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         return false;
     }
 
+    // 初始化调度程序
     private void initializeScheduler() {
         scheduler = new BitsetScheduler(numVertices());
     }
 
+    // 执行更新
     private void execUpdates(final GraphChiProgram<VertexDataType, EdgeDataType> program,
                              final ChiVertex<VertexDataType, EdgeDataType>[] vertices) {
         if (vertices == null || vertices.length == 0) {
             return;
         }
         TimerContext _timer = executionTimer.time();
+        // 下面条件为false
         if (Runtime.getRuntime().availableProcessors() == 1) {
             /* Sequential updates */
+            // 顺序更新
             for(ChiVertex<VertexDataType, EdgeDataType> vertex : vertices) {
                 if (vertex != null) {
                     nupdates++;
@@ -511,10 +554,10 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         } else {
             final Object termlock = new Object();
             final int chunkSize = 1 + vertices.length / 64;
-
             final int nWorkers = vertices.length / chunkSize + 1;
             final AtomicInteger countDown = new AtomicInteger(1 + nWorkers);
 
+//          enableDeterministicExecution = true,不执行下面语句
             if (!enableDeterministicExecution) {
                 for(ChiVertex<VertexDataType, EdgeDataType> vertex : vertices) {
                     if (vertex != null) {
@@ -524,9 +567,11 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             }
 
             /* Parallel updates. One thread for non-parallel safe updates, others
-     updated in parallel. This guarantees deterministic execution. */
+     updated in parallel. This guarantees deterministic execution.
+            并行更新。一个线程用于非并行 安全更新，其他线程则是并行更新。这保证了确定性的执行。
+      */
 
-            /* Non-safe updates */
+            /* Non-safe updates  非并行 安全更新*/
             parallelExecutor.submit(new Runnable() {
                 @Override
                 public void run() {
@@ -555,10 +600,12 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             });
 
 
-            /* Parallel updates */
+            /* Parallel updates 并行更新*/
             for(int thrId = 0; thrId < nWorkers; thrId++) {
                 final int myId = thrId;
+
                 final int chunkStart = myId * chunkSize;
+
                 final int chunkEnd = chunkStart + chunkSize;
 
                 parallelExecutor.submit(new Runnable() {
@@ -613,6 +660,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         _timer.stop();
     }
 
+    // 初始化顶点
     protected int initVertices(int nvertices, int firstVertexId, ChiVertex<VertexDataType, EdgeDataType>[] vertices) throws IOException
     {
         final TimerContext _timer = initVerticesTimer.time();
@@ -622,11 +670,14 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
         int blockId = (vertexDataConverter != null ? vertexDataHandler.load(firstVertexId, firstVertexId + nvertices - 1) : -1);
         for(int j=0; j < nvertices; j++) {
+            // false
             if (enableScheduler && !scheduler.isScheduled(j + firstVertexId)) {
                 continue;
             }
 
             VertexDegree degree = degreeHandler.getDegree(j + firstVertexId);
+
+            // false
             if (skipZeroDegreeVertices && (degree.inDegree + degree.outDegree == 0)) {
                 continue;
             }
@@ -673,7 +724,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                 }
             }
 
-            /* Load in parallel */
+            /* Load in parallel 并行加载*/
             if (!disableOutEdges) {
                 for(int p=0; p < nShards; p++) {
                     if (p != interval || disableInEdges) {
@@ -718,13 +769,14 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         _timer.stop();
     }
 
-    /**
+    /**返回当前的GraphChiContext对象
      * @return the current GraphChiContext object
      */
     public GraphChiContext getContext() {
         return chiContext;
     }
 
+    // 边数
     public long numEdges() {
         long numEdges = 0;
         for(SlidingShard shard : slidingShards) {
@@ -810,6 +862,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
     }
 
+    // 确定下一个窗口
     private int determineNextWindow(int subIntervalStart, int maxVertex) throws IOException, NoEdgesInIntervalException {
         final TimerContext _timer = determineNextWindowTimer.time();
         long totalDegree = 0;
@@ -826,32 +879,39 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             int edataSizeOf = (onlyAdjacency ? 0 : edataConverter.sizeOf());
 
             logger.info("Memory budget: " + memBudget);
-
-            for(int i=0; i< maxInterval; i++) {
+            //for(int i=0; i< maxInterval; i++)
+            for(int i=0; i<= maxInterval; i++) {
+                // false
                 if (enableScheduler) {
                     if (!scheduler.isScheduled(i + subIntervalStart)) {
                         continue;
                     }
                 }
+
                 VertexDegree deg = degreeHandler.getDegree(i + subIntervalStart);
                 int inc = deg.inDegree;
                 int outc = deg.outDegree;
 
+                // 当前顶点与其它顶点无关
                 if (inc + outc == 0 && skipZeroDegreeVertices) {
                     continue;
                 }
 
+                // 当前顶点的总度数
                 totalDegree += inc + outc;
 
                 // Following calculation contains some perhaps reasonable estimates of the
                 // overhead of Java objects.
+                // 下面的计算包含了对Java对象开销的一些也许合理的估计。
+                // 访问当前顶点也需要访问其邻居顶点
 
                 memReq += vertexDataSizeOf + 256 + (edataSizeOf + 4 + 4 + 4) * (inc + outc);
+                // 超出预算
                 if (memReq > memBudget) {
                     if (totalDegree == 0 && vertexDataConverter == null) {
                         throw new NoEdgesInIntervalException();
                     }
-                    return subIntervalStart + i - 1; // Previous vertex was enough
+                    return subIntervalStart + i - 1; // Previous vertex was enough 前一个顶点已经足够
                 }
             }
             if (totalDegree == 0 && vertexDataConverter == null) {
@@ -863,6 +923,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         }
     }
 
+    // 是否启用调度程序
     public boolean isEnableScheduler() {
         return enableScheduler;
     }
@@ -894,6 +955,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         this.hasSetEdgeDataConverter = true;
     }
 
+    // 是否启用确定性执行
     public boolean isEnableDeterministicExecution() {
         return enableDeterministicExecution;
     }
@@ -907,30 +969,35 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         this.enableDeterministicExecution = enableDeterministicExecution;
     }
 
+    //  是否禁止使用出边
     public boolean isDisableOutEdges() {
         return disableOutEdges;
     }
 
     /**
      * Disable loading of out-edges
+     * 禁用出边的加载
      * @param disableOutEdges
      */
     public void setDisableOutEdges(boolean disableOutEdges) {
         this.disableOutEdges = disableOutEdges;
     }
 
+    // 是否修改入边
     public boolean isModifiesInedges() {
         return modifiesInedges;
     }
 
     /**
      * Disable/enable writing of in-edges (enabled by default)
+     * 禁用/启用写入边的功能（默认为启用）
      * @param modifiesInedges
      */
     public void setModifiesInedges(boolean modifiesInedges) {
         this.modifiesInedges = modifiesInedges;
     }
 
+    // 是否修改了出边
     public boolean isModifiesOutedges() {
         return modifiesOutedges;
     }
@@ -939,12 +1006,14 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         this.modifiesOutedges = modifiesOutedges;
     }
 
+    // 是否知识邻接
     public boolean isOnlyAdjacency() {
         return onlyAdjacency;
     }
 
     /**
      * Load only adjacency data.
+     * 仅加载邻接数据
      * @param onlyAdjacency
      */
     public void setOnlyAdjacency(boolean onlyAdjacency) {
@@ -956,10 +1025,12 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         this.disableInEdges = b;
     }
 
+    // 是否禁止使用入边
     public boolean isDisableInEdges() {
         return disableInEdges;
     }
 
+    // 获取最大窗口
     public int getMaxWindow() {
         return maxWindow;
     }
@@ -967,12 +1038,15 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     /**
      * Configures the maximum number of vertices loaded at any time.
      * Default is 20 million. Generally you should not needed to modify this.
+     * 配置任何时候加载的最大顶点数量。
+     * 默认是2000万。一般来说，你应该不需要修改这个参数。
      * @param maxWindow
      */
     public void setMaxWindow(int maxWindow) {
         this.maxWindow = maxWindow;
     }
 
+    // 是否使用静态窗口大小
     public boolean isUseStaticWindowSize() {
         return useStaticWindowSize;
     }
@@ -987,6 +1061,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         this.useStaticWindowSize = useStaticWindowSize;
     }
 
+    // 是否自动导入下一个
     public boolean isAutoLoadNext() {
         return autoLoadNext;
     }
@@ -1001,6 +1076,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         this.autoLoadNext = autoLoadNext;
     }
 
+    // 模拟调度程序
     private class MockScheduler implements Scheduler {
 
         @Override
@@ -1045,6 +1121,9 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
      * GraphChi uses internal vertex ids. To translate from the internal ids
      * to the ids used in the original graph, obtain VertexIdTranslate object
      * by using this method and call translater.backward(internalId)
+     * GraphChi使用内部顶点ID。要从内部id翻译成原图中使用的id，
+     * 请使用此方法获得VertexIdTranslate对象，
+     * 并调用translater.backward(internalId)
      * @return
      */
     public VertexIdTranslate getVertexIdTranslate() {

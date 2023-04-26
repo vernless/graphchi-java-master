@@ -15,7 +15,7 @@ import java.io.IOException;
  * the vertex ids need to be translated back and forth.
  * 将顶点从原始id翻译成内部id，反之亦然。
  * GraphChi将原始id转化为 "模移 "id，从而有效地洗刷了顶点id。
- * 这可能会导致顶点ID空间上的边缘分布平衡，从而使每个分片中的边缘数量大致相等。
+ * 这可能会导致顶点ID空间上的边缘分布平衡，从而使每个分片中的边数量大致相等。
  * 有了这个技巧，我们就不需要首先计算边分布，并在此基础上划分分片区间，
  * 而是可以跳过这一步。缺点是，顶点ID需要来回转换。
  * @author Aapo Kyrola, akyrola@cs.cmu.edu
@@ -51,8 +51,8 @@ public class VertexIdTranslate {
      * @return
      */
     public int backward(int transId) {
-        final int shard = transId / vertexIntervalLength;
-        final int off = transId % vertexIntervalLength;
+        final int shard = transId / vertexIntervalLength; // 0
+        final int off = transId % vertexIntervalLength;   // transId
         return off * numShards + shard;
     }
 

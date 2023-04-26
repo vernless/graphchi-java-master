@@ -59,7 +59,7 @@ import java.nio.channels.WritableByteChannel;
  * this derives, see his <a href="http://www.aber.ac.uk/~agm/Java.html">
  * Freeware Java Classes</a>.
  * <p/>
- *
+ * 随机存取文件
  * @author Alex McManus
  * @author Russ Rew
  * @author john caron
@@ -266,7 +266,9 @@ import java.nio.channels.WritableByteChannel;
 
     if (debugLeaks) {
       openFiles.add(location);
-      if (showOpen) System.out.println("  open " + location);
+      if (showOpen) {
+          System.out.println("  open " + location);
+      }
     }
   }
 
@@ -365,12 +367,14 @@ import java.nio.channels.WritableByteChannel;
   public void seek(long pos) throws IOException {
 
     // If the seek is into the buffer, just update the file pointer.
+//      如果是在缓冲区内寻找，只需更新文件指针。
     if ((pos >= bufferStart) && (pos < dataEnd)) {
       filePosition = pos;
       return;
     }
 
     // need new buffer, starting at pos
+      //需要新的缓冲区，从位置开始
     readBuffer(pos);
   }
 

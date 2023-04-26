@@ -6,12 +6,14 @@ import java.io.EOFException;
 import java.io.FileInputStream;
 
 /**
+ * // 入度出度统计
  * @author Aapo Kyrola
  */
 public class DegreeFileReader {
 
     public static void main(String[] args) throws Exception {
-        String degreeFile = args[0];
+        //String degreeFile = args[0];
+        String degreeFile = "F:\\paper\\dataset\\testCA\\CA_test.txt_degsj.bin";
         DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(degreeFile)));
         int j = 0;
         long totIn = 0;

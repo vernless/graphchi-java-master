@@ -18,6 +18,7 @@ package edu.cmu.graphchi.datablocks;
 
 /**
  * Converts byte[4] array to Float and Float to byte[4].
+ * 将byte[4]数组转换为Float，Float转换为byte[4]。
  * @author Aapo Kyrola
  */
 public class FloatConverter implements  BytesToValueConverter<Float> {

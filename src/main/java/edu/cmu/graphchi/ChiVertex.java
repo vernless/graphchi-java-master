@@ -4,6 +4,7 @@ import edu.cmu.graphchi.datablocks.BytesToValueConverter;
 import edu.cmu.graphchi.datablocks.ChiPointer;
 import edu.cmu.graphchi.datablocks.DataBlockManager;
 import edu.cmu.graphchi.engine.auxdata.VertexDegree;
+import lombok.Data;
 import sun.misc.Unsafe;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
@@ -29,13 +30,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Represents a vertex. Vertex contains a value and a set of in- and out-edges.
+ * 表示顶点。顶点包含一个值以及一组入边和出边。
  * @param <VertexValue>
  * @param <EdgeValue>
  */
+@Data
 public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
-     *  To save memory, support now only 32-bit vertex ids.
+     *  为了节省内存，现在仅支持 32 位顶点 ID。
      */
     private int id;
     public static DataBlockManager blockManager;
@@ -53,7 +56,9 @@ public class ChiVertex<VertexValue, EdgeValue> {
     /* Internal management */
     public boolean parallelSafe = true;
 
-    /* We replicate the behavior of atomic integer to save some memory and improve performance */
+    /* We replicate the behavior of atomic integer to save some memory and improve performance
+    * 我们复制原子整数的行为以节省一些内存并提高性能
+    *  */
 
     @SuppressWarnings("restriction")
     // http://stackoverflow.com/questions/13003871/how-do-i-get-the-instance-of-sun-misc-unsafe
@@ -118,7 +123,8 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
 
     /**
-     * Access the value of a vertex
+     * Access the value of a vertex:通过vertexPtr 指针去访问顶点
+     * 访问一个顶点的值
      */
     public VertexValue getValue() {
         return blockManager.dereference(vertexPtr, (BytesToValueConverter<VertexValue>)
@@ -127,6 +133,7 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * Set the value of the vertex.
+     * 设置顶点的值。
      * @param x new value
      */
     public void setValue(VertexValue x) {
@@ -136,6 +143,7 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * Returns a random out-neighbors vertex id.
+     * 返回一个随机的外邻居顶点ID。
      * @return
      */
     public int getRandomOutNeighbor() {
@@ -150,6 +158,7 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * Returns a random neighbor's vertex id.
+     * 返回一个随机的邻居的顶点ID。
      * @return
      */
     public int getRandomNeighbor() {
@@ -173,10 +182,12 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * INTERNAL USE ONLY    (TODO: separate better)
+     * 仅供内部使用
      */
     public void addInEdge(int chunkId, int offset, int vertexId) {
         int tmpInEdges;
-        /* Note: it would be nicer to use AtomicInteger, but I want to save as much memory as possible */
+        /* 使用AtomicInteger会更好，但我想尽可能地节省内存
+        Note: it would be nicer to use AtomicInteger, but I want to save as much memory as possible */
         for (;;) {
             int current = nInedges;
             tmpInEdges = current + 1;
@@ -192,8 +203,9 @@ public class ChiVertex<VertexValue, EdgeValue> {
             inEdgeDataArray[idx + 1] = offset;
             inEdgeDataArray[idx + 2] = vertexId;
         } else {
-            if (inEdgeDataArray != null)
+            if (inEdgeDataArray != null) {
                 inEdgeDataArray[tmpInEdges] = vertexId;
+            }
         }
     }
 
@@ -218,13 +230,15 @@ public class ChiVertex<VertexValue, EdgeValue> {
             outEdgeDataArray[idx + 1] = offset;
             outEdgeDataArray[idx + 2] = vertexId;
         } else {
-            if (outEdgeDataArray != null)
+            if (outEdgeDataArray != null) {
                 outEdgeDataArray[tmpOutEdges] = vertexId;
+            }
         }
     }
 
     /**
      * Get i'th in-edge
+     * 获取 i 的入边
      * @param i
      * @return edge object
      */
@@ -239,6 +253,7 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * Get i'th outedge
+     * 获取 i 的出边
      * @param i
      * @return  edge object
      */
@@ -253,6 +268,7 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * Get vertex-id of the i'th out edge (avoid creating the edge-object).
+     * 获取第i条出边 的顶点ID（避免创建边对象）。
      * @param i
      */
     public int getOutEdgeId(int i) {
@@ -266,12 +282,16 @@ public class ChiVertex<VertexValue, EdgeValue> {
 
     /**
      * Get i'th edge (in- our out-edge).
+     * 获取 i 的全部边
      * @param i
      * @return  edge object
      */
     public ChiEdge<EdgeValue> edge(int i) {
-        if (i < nInedges) return inEdge(i);
-        else return outEdge(i - nInedges);
+        if (i < nInedges) {
+            return inEdge(i);
+        } else {
+            return outEdge(i - nInedges);
+        }
     }
 
     /**
@@ -319,15 +339,18 @@ public class ChiVertex<VertexValue, EdgeValue> {
         ChiPointer dataPtr;
         int vertexId;
 
+        @Override
         public int getVertexId() {
             return  vertexId;
         }
 
 
+        @Override
         public EdgeValue getValue() {
             return blockManager.dereference(dataPtr, (BytesToValueConverter<EdgeValue>) edgeValueConverter);
         }
 
+        @Override
         public void setValue(EdgeValue x) {
             blockManager.writeValue(dataPtr, edgeValueConverter, x);
         }

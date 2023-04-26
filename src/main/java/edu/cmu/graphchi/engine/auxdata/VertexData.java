@@ -55,23 +55,27 @@ public class VertexData <VertexDataType> {
         this.converter = converter;
         this.sparse = _sparse;
 
+        // 未创建该文件
         File sparseDegreeFile = new File(ChiFilenames.getFilenameOfDegreeData(baseFilename, true));
+        // true
         if (sparse && !sparseDegreeFile.exists()) {
             sparse = false;
             logger.info("Sparse vertex data was allowed but sparse degree file did not exist  using dense");
         }
         File vertexfile = new File(ChiFilenames.getFilenameOfVertexData(baseFilename, converter, sparse));
-
         if (!sparse) {
+//            System.out.println("nvertices:" + nvertices);
             long expectedSize = (long) converter.sizeOf() * (long) nvertices;
 
             // Check size and create if does not exists
+            // 检查尺寸，如果不存在就创建
             logger.info("Vertex file [" + vertexfile.getAbsolutePath() + "] length: " + vertexfile.length() + ", nvertices=" + nvertices
                     + ", expected size: " + expectedSize);
             if (!vertexfile.exists() || vertexfile.length() < expectedSize) {
                 if (!vertexfile.exists()) {
                     vertexfile.createNewFile();
                 }
+                System.out.println("exist");
                 logger.warning("Vertex data file did not exists, creating it. Vertices: " + nvertices);
                 FileOutputStream fos = new FileOutputStream(vertexfile);
                 byte[] tmp = new byte[32678];
@@ -114,6 +118,7 @@ public class VertexData <VertexDataType> {
             long dataStart = (long) firstVertex * (long) converter.sizeOf();
 
             synchronized (vertexDataFile) {
+                // 在存储顶点的
                 vertexDataFile.seek(dataStart);
                 vertexDataFile.write(data);
 
@@ -214,6 +219,7 @@ public class VertexData <VertexDataType> {
         }
     }
 
+    // 指针
     public ChiPointer getVertexValuePtr(int vertexId, int blockId) {
         assert(vertexId >= vertexSt && vertexId <= vertexEn);
         if (!sparse) {

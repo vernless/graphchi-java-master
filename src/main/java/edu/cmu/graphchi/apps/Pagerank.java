@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.Time;
+import java.util.ArrayList;
 import java.util.TreeSet;
 import java.util.logging.Logger;
 
@@ -32,11 +33,14 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
     @Override
     public void update(ChiVertex<Float, Float> vertex, GraphChiContext context)  {
         if (context.getIteration() == 0) {
-            /* Initialize on first iteration */
+            /* Initialize on first iteration
+            * 在第一次迭代时进行初始化
+            * */
             vertex.setValue(1.0f);
         } else {
             /* On other iterations, set my value to be the weighted
                average of my in-coming neighbors pageranks.
+               在其他迭代中，将我的值设置为我的传入邻居页面排名的加权平均值。
              */
             float sum = 0.f;
             for(int i=0; i<vertex.numInEdges(); i++) {
@@ -45,7 +49,9 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
             vertex.setValue(0.15f + 0.85f * sum);
         }
 
-        /* Write my value (divided by my out-degree) to my out-edges so neighbors can read it. */
+        /* Write my value (divided by my out-degree) to my out-edges so neighbors can read it.
+        * 将我的值（除以我的出度数）写到我的出边，以便邻居可以读取它
+        *  */
         float outValue = vertex.getValue() / vertex.numOutEdges();
         for(int i=0; i<vertex.numOutEdges(); i++) {
             vertex.outEdge(i).setValue(outValue);
@@ -98,7 +104,7 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
     public static void main(String[] args) throws  Exception {
         //String baseFilename = args[0];
         // baseFilename = "F:\\paper\\dataset\\CA-GrQc.txt";
-        String baseFilename = "F:\\paper\\dataset\\CA-GrQc_test.txt";
+        String baseFilename = "F:\\paper\\dataset\\testCA\\CA_test.txt";
         //int nShards = Integer.parseInt(args[1]);
         int nShards = 1;
         //String fileType = (args.length >= 3 ? args[2] : null);
@@ -136,5 +142,10 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
         for(IdFloat vertexRank : top20) {
             System.out.println(++i + ": " + trans.backward(vertexRank.getVertexId()) + " = " + vertexRank.getValue());
         }
+
+//        ArrayList<VertexInterval> vertexIntervals = ChiFilenames.loadIntervals("F:\\paper\\dataset\\testCA\\CA_test.txt", 1);
+//        for(VertexInterval v : vertexIntervals){
+//            System.out.println(v.toString());
+//        }
     }
 }

@@ -29,6 +29,7 @@ public class TestWeightedHopper {
         final float[] weights = initWeights(1000);
 
         ChiVertex<Integer, Float> vert = new ChiVertex<Integer, Float>(0, new VertexDegree(0, weights.length)) {
+            @Override
             public Float getOutEdgeValue(int i) {
                 return weights[i];
             }
@@ -73,6 +74,7 @@ public class TestWeightedHopper {
         final float[] weights = initWeights(18);
 
         ChiVertex<Integer, Float> vert = new ChiVertex<Integer, Float>(0, new VertexDegree(0, weights.length)) {
+            @Override
             public Float getOutEdgeValue(int i) {
                 return weights[i];
             }
@@ -116,6 +118,7 @@ public class TestWeightedHopper {
 
         final float[] weights = initWeights(1000);
         ChiVertex<Integer, Float> vert = new ChiVertex<Integer, Float>(0, new VertexDegree(0, weights.length)) {
+            @Override
             public Float getOutEdgeValue(int i) {
                 return weights[i];
             }

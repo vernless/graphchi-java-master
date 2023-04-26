@@ -31,7 +31,9 @@ import java.util.zip.GZIPInputStream;
  */
 
 /**
- * Used only internally - do not modify. To understand Sliding shards, see
+ * Used only internally - do not modify.
+ * 只在内部使用 - 不要修改。
+ * To understand Sliding shards, see
  * http://code.google.com/p/graphchi/wiki/IntroductionToGraphChi
  * @param <EdgeDataType>
  */
@@ -79,8 +81,11 @@ public class SlidingShard <EdgeDataType> {
         }
     }
 
+    @Override
     public void finalize() {
-        for (Block b : activeBlocks) b.release();
+        for (Block b : activeBlocks) {
+            b.release();
+        }
     }
 
     private void checkCurblock(int toread) {
@@ -103,7 +108,9 @@ public class SlidingShard <EdgeDataType> {
 
     private ChiPointer readEdgePtr() {
         assert(sizeOf >= 0);
-        if (onlyAdjacency) return null;
+        if (onlyAdjacency) {
+            return null;
+        }
         checkCurblock(sizeOf);
         ChiPointer ptr = new ChiPointer(curBlock.blockId, curBlock.ptr);
         curBlock.ptr += sizeOf;
@@ -217,7 +224,9 @@ public class SlidingShard <EdgeDataType> {
 
     public void setOffset(int newoff, int _curvid, int edgeptr) {
         try {
-           if (adjFile != null) adjFile.close();
+           if (adjFile != null) {
+               adjFile.close();
+           }
         } catch (IOException ioe) {}
         adjFile = null;
         adjOffset = newoff;
@@ -227,7 +236,9 @@ public class SlidingShard <EdgeDataType> {
 
     public void releasePriorToOffset(boolean all, boolean disableWrites)
             throws IOException {
-        if (onlyAdjacency) return;
+        if (onlyAdjacency) {
+            return;
+        }
         for(int i=activeBlocks.size() - 1; i >= 0; i--) {
             Block b = activeBlocks.get(i);
             if (b.end <= edataOffset || all) {
@@ -271,11 +282,16 @@ public class SlidingShard <EdgeDataType> {
     void commit(Block b, boolean synchronously, boolean disableWrites) throws IOException {
         disableWrites = disableWrites || !modifiesOutedges;
         if (synchronously) {
-            if (!disableWrites) b.commitNow();
+            if (!disableWrites) {
+                b.commitNow();
+            }
             b.release();
         } else {
-            if (!disableWrites) b.commitAsync();
-            else b.release();
+            if (!disableWrites) {
+                b.commitAsync();
+            } else {
+                b.release();
+            }
         }
     }
 
@@ -288,7 +304,9 @@ public class SlidingShard <EdgeDataType> {
     }
 
     public long getNumEdges() {
-        if (converter == null) return edataFilesize / 4; // TODO: fix.
+        if (converter == null) {
+            return edataFilesize / 4; // TODO: fix.
+        }
         return edataFilesize / converter.sizeOf();
     }
 

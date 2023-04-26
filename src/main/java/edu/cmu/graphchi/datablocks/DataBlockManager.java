@@ -21,6 +21,9 @@ import java.util.ArrayList;
 /**
  * Manages large chunks of data which are accessed using ChiPointers.
  * Used internally by GraphChi.
+ * 管理使用ChiPointers访问的大块数据。
+ * 在内部被GraphChi使用。
+ * 存数据？
  * @author akyrola
  */
 public class DataBlockManager {
@@ -54,6 +57,7 @@ public class DataBlockManager {
     /**
      * Called by the engine to clear the registry. All blocks must be null
      * prior to calling!
+     * 由引擎调用以清除注册表。在调用之前，所有区块必须为空！
      */
     public void reset() {
         for(int i=0; i<blocks.size(); i++) {
@@ -77,10 +81,12 @@ public class DataBlockManager {
         blocks.set(blockId, null);
     }
 
+    // 解除引用
     public <T> T dereference(ChiPointer ptr, BytesToValueConverter<T> conv) {
         byte[] arr = new byte[conv.sizeOf()];
 
         if (ptr == null) {
+            // 试图解除对一个空指针的引用
             throw new IllegalStateException("Tried to dereference a null pointer!");
         }
 
