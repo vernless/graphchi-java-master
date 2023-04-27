@@ -212,7 +212,9 @@ public class VertexData <VertexDataType> {
                         }
                     }
                 } catch (EOFException eof) {}
-                if (i != n) throw new IllegalStateException("Mismatch when reading sparse vertex data:" + i + " != " + n);
+                if (i != n) {
+                    throw new IllegalStateException("Mismatch when reading sparse vertex data:" + i + " != " + n);
+                }
                 lastOffset = (int) startPos;
                 return blockId;
             }
@@ -223,6 +225,7 @@ public class VertexData <VertexDataType> {
     public ChiPointer getVertexValuePtr(int vertexId, int blockId) {
         assert(vertexId >= vertexSt && vertexId <= vertexEn);
         if (!sparse) {
+            // 0:0   1:4   2:8
             return new ChiPointer(blockId, (vertexId - vertexSt) * converter.sizeOf());
         } else {
             int idx = Arrays.binarySearch(index, vertexId);

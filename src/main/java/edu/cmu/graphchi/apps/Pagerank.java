@@ -42,6 +42,7 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
                average of my in-coming neighbors pageranks.
                在其他迭代中，将我的值设置为我的传入邻居页面排名的加权平均值。
              */
+            //System.out.println("update");
             float sum = 0.f;
             for(int i=0; i<vertex.numInEdges(); i++) {
                 sum += vertex.inEdge(i).getValue();

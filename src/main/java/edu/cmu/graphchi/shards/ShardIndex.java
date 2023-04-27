@@ -7,6 +7,7 @@ import java.util.Arrays;
 /**
  * Encapsulates a sparse index to shard's edges.
  * Can be used for fast queries or for parallelizing access (memoryshard).
+ * 将稀疏索引封装到分片的边缘。可用于快速查询或并行化访问（内存分片）。
  */
 public class ShardIndex {
     File indexFile;
@@ -21,6 +22,7 @@ public class ShardIndex {
 
     private void load() throws IOException {
         int n = (int) (indexFile.length() / 12) + 1;
+
         vertices = new int[n];
         edgePointer = new int[n];
         fileOffset = new int[n];
@@ -31,16 +33,25 @@ public class ShardIndex {
 
         DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(indexFile)));
         int i = 1;
+
         while (i < n) {
-            vertices[i] = dis.readInt();
-            fileOffset[i] = dis.readInt();
-            edgePointer[i] = dis.readInt();
+            int v1 = dis.readInt();
+            vertices[i] = v1;
+            //System.out.println(v1 + "--");
+            int v2 = dis.readInt();
+            fileOffset[i] = v2;
+            //System.out.println(v2 + "++");
+            int v3 = dis.readInt();
+            edgePointer[i] = v3;
+            //System.out.println(v3 + "**");
+            //System.out.println();
             i++;
         }
     }
 
     /**
      * Returns a sparsified index, which starts with a zero-pointer (and is thus always non-empty)
+     * 返回一个稀疏的索引，它以一个零指针开始（因此总是非空的）。
      */
     public ArrayList<IndexEntry> sparserIndex(int edgeDistance) {
         ArrayList<IndexEntry> spIdx = new ArrayList<IndexEntry>();
@@ -86,14 +97,24 @@ public class ShardIndex {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
 
             IndexEntry that = (IndexEntry) o;
 
-            if (edgePointer != that.edgePointer) return false;
-            if (fileOffset != that.fileOffset) return false;
-            if (vertex != that.vertex) return false;
+            if (edgePointer != that.edgePointer) {
+                return false;
+            }
+            if (fileOffset != that.fileOffset) {
+                return false;
+            }
+            if (vertex != that.vertex) {
+                return false;
+            }
 
             return true;
         }
@@ -106,6 +127,7 @@ public class ShardIndex {
             return result;
         }
 
+        @Override
         public String toString() {
             return "vertex: " + vertex + ", offset=" + fileOffset;
         }

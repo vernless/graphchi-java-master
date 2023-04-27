@@ -222,6 +222,7 @@ public class SlidingShard <EdgeDataType> {
         releasePriorToOffset(true, false);
     }
 
+    // 不执行
     public void setOffset(int newoff, int _curvid, int edgeptr) {
         try {
            if (adjFile != null) {

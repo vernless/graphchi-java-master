@@ -93,6 +93,7 @@ public class ChiVertex<VertexValue, EdgeValue> {
         } catch (Exception ex) { throw new Error(ex); }
     }
 
+    // 指针
     private ChiPointer vertexPtr;
 
     public ChiVertex(int id, VertexDegree degree) {

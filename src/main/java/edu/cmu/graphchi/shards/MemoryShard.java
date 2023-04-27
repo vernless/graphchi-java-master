@@ -131,8 +131,9 @@ public class MemoryShard <EdgeDataType> {
             throws IOException {
         DataInput compressedInput = null;
         if (adjData == null) {
+            // compressedInput == null
             compressedInput = loadAdj();
-
+            // true 执行
             if (!onlyAdjacency) {
                 loadEdata();
             }
@@ -140,6 +141,7 @@ public class MemoryShard <EdgeDataType> {
 
         TimerContext _timer = loadVerticesTimers.time();
 
+        // false 不执行
         if (compressedInput != null) {
             // This means we are using compressed data and cannot read in parallel (or could we?)
             // A bit ugly.
@@ -148,7 +150,7 @@ public class MemoryShard <EdgeDataType> {
         }
         final int sizeOf = (converter == null ? 0 : converter.sizeOf());
 
-        /* Load in parallel */
+        /* Load in parallel 执行 */
         if (compressedInput == null) {
             final AtomicInteger countDown = new AtomicInteger(index.size());
             final Object waitLock = new Object();
@@ -195,10 +197,11 @@ public class MemoryShard <EdgeDataType> {
         int edataPtr = indexEntry.edgePointer * sizeOf;
         int adjOffset = indexEntry.fileOffset;
         int end = adjDataLength;
+
+        // false
         if (chunk < index.size() - 1) {
             end = index.get(chunk + 1).fileOffset;
         }
-
         boolean containsRangeEnd = (vid < rangeEnd && viden > rangeEnd);
         boolean containsRangeSt = (vid <= rangeStart && viden > rangeStart);
 
@@ -230,14 +233,14 @@ public class MemoryShard <EdgeDataType> {
                 adjOffset += 1;
                 assert(ns >= 0);
                 if (ns == 0) {
-                    // next value tells the number of vertices with zeros
+                    // next value tells the number of vertices with zeros 下一个值告诉我们有零的顶点的数量
                     vid++;
                     int nz = adjInput.readUnsignedByte();
                     adjOffset += 1;
                     vid += nz;
                     continue;
                 }
-                if (ns == 0xff) {   // If 255 is not enough, then stores a 32-bit integer after.
+                if (ns == 0xff) {   // If 255 is not enough, then stores a 32-bit integer after.如果255不够，那就在后面存储一个32位的整数。
                     n = Integer.reverseBytes(adjInput.readInt());
                     adjOffset += 4;
                 } else {
@@ -292,6 +295,7 @@ public class MemoryShard <EdgeDataType> {
         File compressedFile = new File(adjDataFilename + ".gz");
         InputStream adjStreamRaw;
         long fileSizeEstimate = 0;
+        // false
         if (compressedFile.exists()) {
             logger.info("Note: using compressed: " + compressedFile.getAbsolutePath());
             adjStreamRaw = new GZIPInputStream(new FileInputStream(compressedFile));
@@ -300,7 +304,6 @@ public class MemoryShard <EdgeDataType> {
             adjStreamRaw = new FileInputStream(adjDataFilename);
             fileSizeEstimate = new File(adjDataFilename).length();
         }
-
         /* Load index */
         index = new ShardIndex(new File(adjDataFilename)).sparserIndex(1204 * 1024);
         BufferedInputStream adjStream =	new BufferedInputStream(adjStreamRaw, (int) fileSizeEstimate /
@@ -316,7 +319,9 @@ public class MemoryShard <EdgeDataType> {
                 int read =  adjStream.read(buf);
                 if (read > 0) {
                     adjDataStream.write(buf, 0, read);
-                } else break;
+                } else {
+                    break;
+                }
             }
         } catch (EOFException err) {
             // Done
@@ -333,15 +338,18 @@ public class MemoryShard <EdgeDataType> {
     }
 
     private void loadEdata() throws FileNotFoundException, IOException {
-        /* Load the edge data from file. Should be done asynchronously. */
+        /* Load the edge data from file. Should be done asynchronously.
+        从文件中加载边数据。应以异步方式进行 */
         blocksize = ChiFilenames.getBlocksize(converter.sizeOf());
-
+        // true
         if (!loaded) {
             edataFilesize = ChiFilenames.getShardEdataSize(edgeDataFilename);
+            //System.out.println("edataFilesize:" + edataFilesize);
             int nblocks = edataFilesize / blocksize + (edataFilesize % blocksize == 0 ? 0 : 1);
             blockIds = new int[nblocks];
             blockSizes = new int[nblocks];
             for(int fileBlockId=0; fileBlockId < nblocks; fileBlockId++) {
+                // fsize：边的内存，5242的顶点 20968条边 * 4 == 115872
                 int fsize = Math.min(edataFilesize - blocksize * fileBlockId, blocksize);
                 blockIds[fileBlockId] = dataBlockManager.allocateBlock(fsize);
                 blockSizes[fileBlockId] = fsize;

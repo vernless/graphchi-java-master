@@ -45,6 +45,7 @@ public class ChiFilenames {
         if (CompressedIO.isCompressionEnabled()) {
             edataShardName += ".Z.";
         }
+        //System.out.println("blocksize:" + blocksize);
         return edataShardName + "_blockdir_" + blocksize;
     }
     // 获取文件名分片数据块
