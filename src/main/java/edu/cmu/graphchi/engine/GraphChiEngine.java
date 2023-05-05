@@ -127,10 +127,12 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         blockManager = new DataBlockManager();
         degreeHandler = new DegreeData(baseFilename);
 
+        // CA_test.txt.1.vtranslate 在fastSharder里面已经创建了
         File vertexIdTranslateFile = new File(ChiFilenames.getVertexTranslateDefFile(baseFilename, nShards));
         if (vertexIdTranslateFile.exists()) {
             vertexIdTranslate = VertexIdTranslate.fromFile(vertexIdTranslateFile);
         } else {
+            // 重写 VertexIdTranslate 里面的各种方法
             vertexIdTranslate = VertexIdTranslate.identity();
         }
         chiContext.setVertexIdTranslate(vertexIdTranslate);
@@ -206,7 +208,10 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
     protected void initializeSlidingShards() throws IOException {
         slidingShards = new ArrayList<SlidingShard<EdgeDataType> >();
         for(int p=0; p < nShards; p++) {
+
             String edataFilename = (onlyAdjacency ? null : ChiFilenames.getFilenameShardEdata(baseFilename, edataConverter, p, nShards));
+
+            // CA_test.txt.edata_java.0_1.adj
             String adjFilename = ChiFilenames.getFilenameShardsAdj(baseFilename, p, nShards);
 
             SlidingShard<EdgeDataType> slidingShard = new SlidingShard<EdgeDataType>(edataFilename, adjFilename, intervals.get(p).getFirstVertex(),
@@ -226,7 +231,14 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
      * @throws IOException
      */
     protected MemoryShard<EdgeDataType> createMemoryShard(int intervalStart, int intervalEnd, int execInterval) {
+        // CA_test.txt.edata_java.e4B.0_1 不存在
         String edataFilename = (onlyAdjacency ? null : ChiFilenames.getFilenameShardEdata(baseFilename, edataConverter, execInterval, nShards));
+        File edataFile = new File(edataFilename);
+        if(edataFile.exists()){
+            // 不存在
+            System.out.println("edataFile is exist");
+        }
+        // 边文件：CA_test.txt.edata_java.0_1.adj
         String adjFilename = ChiFilenames.getFilenameShardsAdj(baseFilename, execInterval, nShards);
         MemoryShard<EdgeDataType> newMemoryShard = new MemoryShard<EdgeDataType>(edataFilename, adjFilename,
                 intervals.get(execInterval).getFirstVertex(),
@@ -316,6 +328,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                 } catch (InterruptedException ie) {}
             }
             blockManager.reset();
+            // Iteration == 0 时，是初始化每个顶点值
             chiContext.setIteration(iter);
             chiContext.setNumVertices(numVertices());
             // PageRank除了 update方法外，其他的方法都无意义
@@ -334,7 +347,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                 int intervalSt = intervals.get(execInterval).getFirstVertex();
                 int intervalEn = intervals.get(execInterval).getLastVertex();
                 // 开始输出
-                logger.info("start--------------------------------------------");
+                logger.info("start------------------------------------------------------------------");
                 logger.info((System.currentTimeMillis() - startTime) * 0.001 + "s: iteration: " + iter + ", interval: " + intervalSt + " -- " + intervalEn);
 
                 // false
@@ -460,17 +473,19 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                         program.beginSubInterval(chiContext, new VertexInterval(subIntervalStart, subIntervalEnd));
 
                         long t1 = System.currentTimeMillis();
+                        // 修改 DataBlockManager 中的数据
                         execUpdates(program, vertices);
                         logger.info("Update exec: " + (System.currentTimeMillis() - t1) + " ms.");
 
                         // Write vertices (async) 写下顶点
                         final int _firstVertex = subIntervalStart;
+                        // 顶点的blockId = 0
                         final int _blockId = vertexBlockId;
                         parallelExecutor.submit(new Runnable() {
                             @Override
                             public void run() {
                                 try {
-                                    // 输出vertex-data releaseAndCommit - t:17 信息:   Vertex data write:
+                                    // 写入顶点到内存中的RandomAccessFile，并把blockManager中的顶点数据清空
                                     vertexDataHandler.releaseAndCommit(_firstVertex, _blockId);
                                 } catch (IOException ioe) {
                                     ioe.printStackTrace();
@@ -492,7 +507,12 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
 
 
                 /* Commit */
+                // 写出边，并把blockManager中的全部数据——边数据，因为
+                // vertexDataHandler.releaseAndCommit(_firstVertex, _blockId);
+                // 清空了顶点数据
                 if (!disableInEdges) {
+                    // 写入外存的..blockdir..文件中
+                    //  false 和 true 只能修改出边
                     memoryShard.commitAndRelease(modifiesInedges, modifiesOutedges);
                     if (!disableOutEdges && !autoLoadNext) {
                         slidingShards.get(execInterval).setOffset(memoryShard.getStreamingOffset(),
@@ -560,8 +580,9 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             final Object termlock = new Object();
             final int chunkSize = 1 + vertices.length / 64;
             final int nWorkers = vertices.length / chunkSize + 1;
+            //System.out.println("nWorker:" + nWorkers);
             final AtomicInteger countDown = new AtomicInteger(1 + nWorkers);
-
+           // System.out.println("countD:" + countDown);
 //          enableDeterministicExecution = true,不执行下面语句
             if (!enableDeterministicExecution) {
                 for(ChiVertex<VertexDataType, EdgeDataType> vertex : vertices) {
@@ -576,7 +597,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
             并行更新。一个线程用于非并行 安全更新，其他线程则是并行更新。这保证了确定性的执行。
       */
 
-            /* Non-safe updates  非并行 安全更新 第一次初始化顶点的值*/
+            /* Non-safe updates  非并行 安全更新  对每个顶点进行更新*/
             parallelExecutor.submit(new Runnable() {
                 @Override
                 public void run() {
@@ -585,18 +606,21 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                     GraphChiContext threadContext = chiContext.clone(0);
                     try {
                         for(ChiVertex<VertexDataType, EdgeDataType> vertex : vertices) {
+                            // true
+                            //System.out.println("vertex" + vertex.getId() + ":"+vertex.parallelSafe);
                             if (vertex != null && !vertex.parallelSafe) {
-                                //System.out.println("yes:" + indexx++);
+                                //System.out.println("no1:" + thrupdates + " -- " + threadContext.getIteration());
                                 thrupdates++;
                                 program.update(vertex, threadContext);
                             }
                         }
-                        System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+                        //System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }  finally {
                         int pending = countDown.decrementAndGet();
                         synchronized (termlock) {
+                            //System.out.println("index---0:" + indexx++ + "  nupdates:" + nupdates  + " pending:" + pending);
                             nupdates += thrupdates;
                             if (pending == 0) {
                                 termlock.notifyAll();;
@@ -606,9 +630,10 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                 }
             });
 
-
+            //System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             /* Parallel updates 并行更新 : 从第二次开始*/
             for(int thrId = 0; thrId < nWorkers; thrId++) {
+
                 final int myId = thrId;
                 final int chunkStart = myId * chunkSize;
 
@@ -631,7 +656,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                                 ChiVertex<VertexDataType, EdgeDataType> vertex = vertices[i];
                                 if (vertex != null && vertex.parallelSafe) {
                                     thrupdates++;
-                                    System.out.println("no:" + thrupdates + " -- " + threadContext.getIteration());
+                                    //System.out.println("no2:" + thrupdates + " -- " + threadContext.getIteration() + "vertex:" + vertex.getId());
                                     program.update(vertex, threadContext);
                                 }
                             }
@@ -641,7 +666,10 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
                         } finally {
                             int pending = countDown.decrementAndGet();
                             synchronized (termlock) {
+                                long p1 =nupdates;
                                 nupdates += thrupdates;
+
+                                //System.out.println("index+++1:" + indexx++ + "  nupdates:" + nupdates + " pending:" + pending);
                                 if (pending == 0) {
                                     termlock.notifyAll();
                                 }
@@ -676,6 +704,7 @@ public class GraphChiEngine <VertexDataType, EdgeDataType> {
         ChiVertex.vertexValueConverter = vertexDataConverter;
         ChiVertex.blockManager = blockManager;
 
+        // 顶点blockId为0，边blockId为1
         int blockId = (vertexDataConverter != null ? vertexDataHandler.load(firstVertexId, firstVertexId + nvertices - 1) : -1);
         for(int j=0; j < nvertices; j++) {
             // false

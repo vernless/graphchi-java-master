@@ -30,6 +30,7 @@ public class VertexDegree {
         this.outDegree = outDegree;
     }
 
+    @Override
     public String toString() {
         return inDegree + "," + outDegree;
     }

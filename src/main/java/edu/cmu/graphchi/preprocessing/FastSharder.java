@@ -75,6 +75,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     private boolean useSparseDegrees = false;
     private boolean allowSparseDegreesAndVertexData = false;
 
+    // sizeof == 4
     private BytesToValueConverter<EdgeValueType> edgeValueTypeBytesToValueConverter;
     private BytesToValueConverter<VertexValueType> vertexValueTypeBytesToValueConverter;
 
@@ -158,7 +159,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      * 在预处理中添加一条边。
      * @param from
      * @param to
-     * @param edgeValueToken
+     * @param edgeValueToken : null
      * @throws IOException
      */
     public void addEdge(int from, int to, String edgeValueToken) throws IOException {
@@ -173,8 +174,10 @@ public class FastSharder <VertexValueType, EdgeValueType> {
            for the vertex, and it is passed to the vertexProcessor.
            如果from和to ids相同，这个边对被认为包含顶点的值，并被传递给vertexProcessor。
          */
+        //
 
         if (from == to) {
+            //System.out.println("from == to:" + from);
             if (vertexProcessor != null && edgeValueToken != null) {
                 VertexValueType value = vertexProcessor.receiveVertexValue(from, edgeValueToken);
                 if (value != null) {
@@ -213,6 +216,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
                              EdgeValueType value) throws IOException {
         DataOutputStream strm = shovelStreams[shard];
         strm.writeLong(packEdges(preTranslatedIdFrom, preTranslatedTo));
+        // 初始 value 为0
         if (edgeValueTypeBytesToValueConverter != null) {
             edgeValueTypeBytesToValueConverter.setValue(valueTemplate, value);
         }
@@ -240,6 +244,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     /**
      * We keep separate shovel-file for vertex-values.
      * 我们为顶点值保留单独的铲子文件。
+     * 不执行，因为value 为 null
      * @param shard
      * @param pretranslatedVertexId
      * @param value
@@ -248,6 +253,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     private void addVertexValue(int shard, int pretranslatedVertexId, VertexValueType value) throws IOException{
         DataOutputStream strm = vertexShovelStreams[shard];
         strm.writeInt(pretranslatedVertexId);
+        // 把value 填入vertexValueTemplate
         vertexValueTypeBytesToValueConverter.setValue(vertexValueTemplate, value);
         strm.write(vertexValueTemplate);
     }
@@ -377,10 +383,12 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      * @throws IOException
      */
     private void writeDegrees() throws IOException {
+        // CA_test.txt_degsj.bin
         DataOutputStream degreeOut = new DataOutputStream(new BufferedOutputStream(
                 new FileOutputStream(ChiFilenames.getFilenameOfDegreeData(baseFilename, useSparseDegrees))));
         for(int i=0; i<inDegrees.length; i++) {
             if (!useSparseDegrees)   {
+                // 写出每个顶点入度和出度
                 degreeOut.writeInt(Integer.reverseBytes(inDegrees[i]));
                 degreeOut.writeInt(Integer.reverseBytes(outDegrees[i]));
             } else {
@@ -394,7 +402,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         degreeOut.close();
     }
 
-    // 写入区间
+    // 写入区间长度
     private void writeIntervals() throws IOException{
         FileWriter wr = new FileWriter(ChiFilenames.getFilenameIntervals(baseFilename, numShards));
         for(int j=1; j<=numShards; j++) {
@@ -422,6 +430,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
      */
     private void processVertexValues(boolean sparse) throws IOException {
         DataBlockManager dataBlockManager = new DataBlockManager();
+        // 初始化时生成了 顶点数据文件CA_test.txt.4Bj.vout 和 顶点度数文件CA_test.txt_degsj.bin
         VertexData<VertexValueType> vertexData = new VertexData<VertexValueType>(maxVertexId + 1, baseFilename,
                 vertexValueTypeBytesToValueConverter, sparse);
         vertexData.setBlockManager(dataBlockManager);
@@ -437,11 +446,17 @@ public class FastSharder <VertexValueType, EdgeValueType> {
             /* Read shovel and sort
             * 阅读铲子并排序
             *  */
+            // CA_test.txt.vertexshovel.0 里面为空，因为每条边上没有权重，即value == null
             File shovelFile = new File(vertexShovelFileName(p));
             BufferedDataInputStream in = new BufferedDataInputStream(new FileInputStream(shovelFile));
 
+            // 4
             int sizeOf = vertexValueTypeBytesToValueConverter.sizeOf();
+
+            // shovelFile 为空
             long[] vertexIds = new long[(int) (shovelFile.length() / (4 + sizeOf))];
+
+            // 直接continue，所以下面的代码都不运行
             if (vertexIds.length == 0) {
                 continue;
             }
@@ -454,7 +469,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
                 int valueIdx = i * sizeOf;
                 System.arraycopy(vertexValueTemplate, 0, vertexValues, valueIdx, sizeOf);
             }
-
             /* Sort
             * 源 id 是更高阶的，因此对长整型进行排序将产生正确的结果
             * */
@@ -463,7 +477,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
             int SUBINTERVAL = 2000000;
 
             int iterIdx = 0;
-
             /* Insert into data */
             for(int subIntervalSt=intervalSt; subIntervalSt < intervalEn; subIntervalSt += SUBINTERVAL) {
                 int subIntervalEn = subIntervalSt + SUBINTERVAL - 1;
@@ -471,7 +484,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
                     subIntervalEn = intervalEn;
                 }
                 int blockId = vertexData.load(subIntervalSt, subIntervalEn);
-
                 Iterator<Integer> iterator = vertexData.currentIterator();
                 while(iterator.hasNext()) {
                     int curId = iterator.next();
@@ -500,6 +512,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     /**
      * Converts a shovel-file into a shard.
      *将铲锉文件转换为分片。
+     * 编排序，把数据写入相关文件中
      * @param shardNum
      * @throws IOException
      */
@@ -508,12 +521,16 @@ public class FastSharder <VertexValueType, EdgeValueType> {
        // System.out.println(shovelFile.length());
         int sizeOf = (edgeValueTypeBytesToValueConverter != null ? edgeValueTypeBytesToValueConverter.sizeOf() : 0);
 
+        // 先前在shovelFile中 对于每条边先存 一个Long型包含处罚和目的顶点：8个字节，
+        // 然后存的是 边的权值 value int：4个字节
         long[] shoveled = new long[(int) (shovelFile.length() / (8 + sizeOf))];
 
-        // TODO: improve
+        // shoveled.length ： 边的数目
         if (shoveled.length > 500000000) {
             throw new RuntimeException("Too big shard size, shovel length was: " + shoveled.length + " max: " + 500000000);
         }
+
+        // 一条边用 一个 byte[4] 表示
         byte[] edgeValues = new byte[shoveled.length * sizeOf];
         logger.info("Processing shovel " + shardNum);
 
@@ -527,13 +544,18 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         BufferedDataInputStream in = new BufferedDataInputStream(new FileInputStream(shovelFile));
         for(int i=0; i<shoveled.length; i++) {
             long l = in.readLong();
+            // 低32位
             int from = getFirst(l);
+            // 高32位
             int to = getSecond(l);
+            // valueTemplate：全局变量，即byte[4]，用来存储边的value，免得浪费存储空间
             in.readFully(valueTemplate);
 
             int newFrom = finalIdTranslate.forward(preIdTranslate.backward(from));
             int newTo = finalIdTranslate.forward(preIdTranslate.backward(to));
             //System.out.println("newFrom:" + newFrom + "  -------  " + "newTo:" + newTo);
+
+            // 第i条边
             shoveled[i] = packEdges(newFrom, newTo);
 
             /* Edge value */
@@ -554,7 +576,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         logger.info("Processing shovel " + shardNum + " ... sorting");
 
         /* Sort the edges
-        * 源 id 是更高阶的，因此对长整型进行排序将产生正确的结果
+        * from 的 id 是更高阶的，先按照 from 从小到大排序，若 from 相等则按照 to 从小到大排序
         * The source id is  higher order, so sorting the longs will produce right result
         * */
         sortWithValues(shoveled, edgeValues, sizeOf);
@@ -573,8 +595,11 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         /**
          * Step 1: ADJACENCY SHARD
          */
+        // CA_test.txt.edata_java.0_1.adj
         File adjFile = new File(ChiFilenames.getFilenameShardsAdj(baseFilename, shardNum, numShards));
         DataOutputStream adjOut = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(adjFile)));
+
+        // CA_test.txt.edata_java.0_1.adj.index
         File indexFile = new File(adjFile.getAbsolutePath() + ".index");
         DataOutputStream indexOut = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile)));
         int curvid = 0;
@@ -583,6 +608,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         int lastIndexFlush = 0;
         int edgesPerIndexEntry = 4096; // Tuned for fast shard queries 为快速分片查询进行了调整
 
+        // shoveled.length：边数
         for(int i=0; i <= shoveled.length; i++) {
             int from = (i < shoveled.length ? getFirst(shoveled[i]) : -1);
 
@@ -645,6 +671,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         * 创建压缩的边数据目录
         * */
         if (sizeOf > 0) {
+            // 4096 * 1024 == 4194304
             int blockSize = ChiFilenames.getBlocksize(sizeOf);
             String edataFileName = ChiFilenames.getFilenameShardEdata(baseFilename, new BytesToValueConverter() {
                 @Override
@@ -661,12 +688,16 @@ public class FastSharder <VertexValueType, EdgeValueType> {
                 public void setValue(byte[] array, Object val) {
                 }
             }, shardNum, numShards);
+            // CA_test.txt.edata_java.e4B.0_1.size
             File edgeDataSizeFile = new File(edataFileName + ".size");
+
+            // CA_test.txt.edata_java.e4B.0_1_blockdir_4194304
             File edgeDataDir = new File(ChiFilenames.getDirnameShardEdataBlock(edataFileName, blockSize));
             if (!edgeDataDir.exists()) {
                 edgeDataDir.mkdir();
             }
 
+            // 边数 * 4
             long edatasize = shoveled.length * edgeValueTypeBytesToValueConverter.sizeOf();
             FileWriter sizeWr = new FileWriter(edgeDataSizeFile);
             sizeWr.write(edatasize + "");
@@ -678,7 +709,10 @@ public class FastSharder <VertexValueType, EdgeValueType> {
             int blockIdx = 0;
             int edgeIdx= 0;
             for(long idx=0; idx < edatasize; idx += blockSize) {
+                // CA_test.txt.edata_java.e4B.0_1_blockdir_4194304/0
                 File blockFile = new File(ChiFilenames.getFilenameShardEdataBlock(edataFileName, blockIdx, blockSize));
+
+                // CompressedIO.isCompressionEnabled() == false
                 OutputStream blockOs = (CompressedIO.isCompressionEnabled() ?
                         new DeflaterOutputStream(new BufferedOutputStream(new FileOutputStream(blockFile))) :
                         new FileOutputStream(blockFile));
@@ -707,6 +741,7 @@ public class FastSharder <VertexValueType, EdgeValueType> {
     {
         int i = left, j = right;
         long tmp;
+        // left +  0 到 right - left之间的数
         long pivot = arr[left + random.nextInt(right - left + 1)];
         byte[] valueTemplate = new byte[sizeOf];
 
@@ -731,7 +766,6 @@ public class FastSharder <VertexValueType, EdgeValueType> {
                 j--;
             }
         }
-
         return i;
     }
 
@@ -748,7 +782,13 @@ public class FastSharder <VertexValueType, EdgeValueType> {
         }
     }
 
-
+    /**
+    * @Description: 对 shoveled 和 edgeValue排序，
+     *          shoveled：从from顶点开始，从小到大，当from顶点相同时，按照to顶点从小到大排序
+     *          edgeValue：也要按照shoveled 变更
+    * @Params: [shoveled:from_to:long[edgeSize], edgeValues:value:byte[edgeSize], sizeOf:4]
+    * @Return void
+    */
     public static void sortWithValues(long[] shoveled, byte[] edgeValues, int sizeOf) {
         quickSort(shoveled, edgeValues, sizeOf, 0, shoveled.length - 1);
     }

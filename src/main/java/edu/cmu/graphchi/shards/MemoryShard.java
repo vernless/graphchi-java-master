@@ -47,6 +47,7 @@ public class MemoryShard <EdgeDataType> {
     private int rangeStart;
     private int rangeEnd;
 
+    // 边数据以字节码的形式存在
     private byte[] adjData;
     private int[] blockIds = new int[0];
     private int[] blockSizes = new int[0];;
@@ -82,9 +83,9 @@ public class MemoryShard <EdgeDataType> {
 
     }
 
+    // 把block中的数据写入 ..blockdir..文件 中
     public void commitAndRelease(boolean modifiesInedges, boolean modifiesOutedges) throws IOException {
         int nblocks = blockIds.length;
-
         if (!onlyAdjacency && loaded) {
             if (modifiesInedges) {
                 if (blocksize == 0) {
@@ -94,12 +95,12 @@ public class MemoryShard <EdgeDataType> {
                 for(int i=0; i < nblocks; i++) {
                     String blockFilename = ChiFilenames.getFilenameShardEdataBlock(edgeDataFilename, i, blocksize);
                     if (i >= startStreamBlock) {
-                        // Synchronous write
+                        // Synchronous write 同步
                         CompressedIO.writeCompressed(new File(blockFilename),
                                 dataBlockManager.getRawBlock(blockIds[i]),
                                 blockSizes[i]);
                     } else {
-                        // Asynchronous write (not implemented yet, so is same as synchronous)
+                        // Asynchronous write (not implemented yet, so is same as synchronous)异步写入
                         CompressedIO.writeCompressed(new File(blockFilename),
                                 dataBlockManager.getRawBlock(blockIds[i]),
                                 blockSizes[i]);
@@ -120,21 +121,32 @@ public class MemoryShard <EdgeDataType> {
                             blockSizes[i]);
                 }
             }
+//            for(byte[] b : dataBlockManager.getBlockArray()){
+//                if(b != null){
+//                    System.out.println(b.length);
+//                }else {
+//                    System.out.println("NULL!");
+//                }
+//
+//            }
             /* Release all blocks */
             for(Integer blockId : blockIds) {
                 dataBlockManager.release(blockId);
             }
+
         }
     }
 
     public void loadVertices(final int windowStart, final int windowEnd, final ChiVertex[] vertices, final boolean disableOutEdges, final ExecutorService parallelExecutor)
             throws IOException {
         DataInput compressedInput = null;
+        // 顶点blockId为0，边blockId为1
         if (adjData == null) {
             // compressedInput == null
             compressedInput = loadAdj();
             // true 执行
             if (!onlyAdjacency) {
+                //System.out.println("yes");
                 loadEdata();
             }
         }
@@ -154,6 +166,7 @@ public class MemoryShard <EdgeDataType> {
         if (compressedInput == null) {
             final AtomicInteger countDown = new AtomicInteger(index.size());
             final Object waitLock = new Object();
+            // index 中只有一个（0,0），即size = 1
             for(int chunk=0; chunk<index.size(); chunk++) {
                 final int _chunk = chunk;
                 parallelExecutor.submit(new Runnable() {
@@ -189,12 +202,18 @@ public class MemoryShard <EdgeDataType> {
         _timer.stop();
     }
 
+    // 对每个 ChiVertex添加入边和出边
     private void loadAdjChunk(int windowStart, int windowEnd, ChiVertex[] vertices, boolean disableOutEdges, DataInput compressedInput, int sizeOf, int chunk) throws IOException {
+        // index 中只有一个（0, 0, 0)）
         ShardIndex.IndexEntry indexEntry = index.get(chunk);
 
+        // 0
         int vid = indexEntry.vertex;
+        // Integer.MAX_VALUE
         int viden = (chunk < index.size() - 1 ?  index.get(chunk + 1).vertex : Integer.MAX_VALUE);
+        // 0
         int edataPtr = indexEntry.edgePointer * sizeOf;
+        // 0
         int adjOffset = indexEntry.fileOffset;
         int end = adjDataLength;
 
@@ -202,16 +221,19 @@ public class MemoryShard <EdgeDataType> {
         if (chunk < index.size() - 1) {
             end = index.get(chunk + 1).fileOffset;
         }
+        // true
         boolean containsRangeEnd = (vid < rangeEnd && viden > rangeEnd);
+        // true
         boolean containsRangeSt = (vid <= rangeStart && viden > rangeStart);
 
+        // false
         DataInput adjInput = (compressedInput != null ? compressedInput : new DataInputStream(new ByteArrayInputStream(adjData)));
 
         adjInput.skipBytes(adjOffset);
 
         try {
             while(adjOffset < end) {
-
+                // true
                 if (containsRangeEnd) {
                     if (!hasSetOffset && vid > rangeEnd) {
                         streamingOffset = adjOffset;
@@ -220,6 +242,7 @@ public class MemoryShard <EdgeDataType> {
                         hasSetOffset = true;
                     }
                 }
+                // true
                 if (containsRangeSt)  {
                     if (!hasSetRangeOffset && vid >= rangeStart) {
                         rangeStartOffset = adjOffset;
@@ -251,7 +274,7 @@ public class MemoryShard <EdgeDataType> {
                 if (vid >= windowStart && vid <= windowEnd) {
                     vertex = vertices[vid - windowStart];
                 }
-
+                // 为每个顶点添加入边和出边
                 while (--n >= 0) {
                     int target = Integer.reverseBytes(adjInput.readInt());
                     adjOffset += 4;
@@ -291,6 +314,7 @@ public class MemoryShard <EdgeDataType> {
     }
 
 
+    // 读取 CA_test.txt.edata_java.0_1.adj
     private DataInput loadAdj() throws FileNotFoundException, IOException {
         File compressedFile = new File(adjDataFilename + ".gz");
         InputStream adjStreamRaw;
@@ -306,10 +330,12 @@ public class MemoryShard <EdgeDataType> {
         }
         /* Load index */
         index = new ShardIndex(new File(adjDataFilename)).sparserIndex(1204 * 1024);
+        // 从边文件中读取
         BufferedInputStream adjStream =	new BufferedInputStream(adjStreamRaw, (int) fileSizeEstimate /
                 4);
 
         // Hack for cases when the load is not divided into subwindows
+        // 当负载不被划分为子窗口时的破解方法
         TimerContext _timer = loadAdjTimer.time();
 
         ByteArrayOutputStream adjDataStream = new ByteArrayOutputStream((int) fileSizeEstimate);
@@ -318,6 +344,7 @@ public class MemoryShard <EdgeDataType> {
             while (true) {
                 int read =  adjStream.read(buf);
                 if (read > 0) {
+                    // 读取到 adjDataStream 中的默认byte数组，即下面的adjData
                     adjDataStream.write(buf, 0, read);
                 } else {
                     break;
@@ -340,20 +367,30 @@ public class MemoryShard <EdgeDataType> {
     private void loadEdata() throws FileNotFoundException, IOException {
         /* Load the edge data from file. Should be done asynchronously.
         从文件中加载边数据。应以异步方式进行 */
+        // 默认初始化：4096 * 1024 = 4194304
         blocksize = ChiFilenames.getBlocksize(converter.sizeOf());
         // true
         if (!loaded) {
+            // 边数 * 字节数（4）：28968条边 * 4 == 115872
+            // 使用的是 CA_test.txt.edata_java.e4B.0_1.size
             edataFilesize = ChiFilenames.getShardEdataSize(edgeDataFilename);
-            //System.out.println("edataFilesize:" + edataFilesize);
+
+            // nblocks == 1
             int nblocks = edataFilesize / blocksize + (edataFilesize % blocksize == 0 ? 0 : 1);
             blockIds = new int[nblocks];
             blockSizes = new int[nblocks];
+
             for(int fileBlockId=0; fileBlockId < nblocks; fileBlockId++) {
-                // fsize：边的内存，5242的顶点 20968条边 * 4 == 115872
+                // fsize：边的内存，5242的顶点 28968条边 * 4 == 115872
                 int fsize = Math.min(edataFilesize - blocksize * fileBlockId, blocksize);
+
+                // dataBlockManager的第一个块存放顶点数据
+                // dataBlockManager的第二个块存放边数据
                 blockIds[fileBlockId] = dataBlockManager.allocateBlock(fsize);
+                //System.out.println(dataBlockManager.getBlockSize());
                 blockSizes[fileBlockId] = fsize;
                 String blockfilename = ChiFilenames.getFilenameShardEdataBlock(edgeDataFilename, fileBlockId, blocksize);
+                // 把 CA_test.txt.edata_java.e4B.0_1_blockdir_4194304/0 中的数据写入 dataBlockManager.getRawBlock(blockIds[fileBlockId]) 中
                 CompressedIO.readCompressed(new File(blockfilename), dataBlockManager.getRawBlock(blockIds[fileBlockId]), fsize);
             }
 

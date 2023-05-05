@@ -21,7 +21,7 @@ import java.util.ArrayList;
 /**
  * Manages large chunks of data which are accessed using ChiPointers.
  * Used internally by GraphChi.
- * 管理使用ChiPointers访问的大块数据。
+ * 管理使用ChiPointers指针访问的大块数据。
  * 在内部被GraphChi使用。
  * 存数据？
  * @author akyrola
@@ -30,15 +30,25 @@ public class DataBlockManager {
 
     private ArrayList<byte[]> blocks = new ArrayList<byte[]>(32678);
 
+    public ArrayList<byte[]> getBlockArray(){
+        return blocks;
+    }
     public DataBlockManager() {
 
     }
 
+    /*
+    *  debug : 查看block的数量
+    * */
+    public int getBlockSize(){
+        return blocks.size();
+    }
     public int allocateBlock(int numBytes) {
         byte[] dataBlock = new byte[numBytes];
 
         synchronized(blocks) {
             int blockId = blocks.size();
+            //System.out.println("blockID:"+blockId);
             blocks.add(blockId, dataBlock);
             return blockId;
         }
@@ -78,6 +88,7 @@ public class DataBlockManager {
     }
 
     public void release(int blockId) {
+
         blocks.set(blockId, null);
     }
 

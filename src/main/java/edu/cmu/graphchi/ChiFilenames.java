@@ -63,12 +63,12 @@ public class ChiFilenames {
         return Integer.parseInt(ln);
     }
 
-    // 获取文件名分片数据
+    // 获取文件名 工具人，没啥用，只是用来充当文件名的前缀
     public static String getFilenameShardEdata(String baseFilename, BytesToValueConverter valueConv, int p, int nShards) {
         return baseFilename + ".edata_java.e" + valueConv.sizeOf() + "B." + p + "_" + nShards;
     }
 
-    // 获取文件名分片调整
+    // 获取文件名分片 边数据
     public static String getFilenameShardsAdj(String baseFilename, int p, int nShards) {
         return baseFilename + ".edata_java." + p + "_" + nShards + ".adj";
     }

@@ -52,6 +52,7 @@ public class DegreeData {
         File sparseFile = new File(ChiFilenames.getFilenameOfDegreeData(baseFilename, true));
         File denseFile = new File(ChiFilenames.getFilenameOfDegreeData(baseFilename, false));
 
+        // false
         if (sparseFile.exists()) {
             sparse = true;
             degreeFile = new RandomAccessFile(sparseFile.getAbsolutePath(), "r");
@@ -145,6 +146,11 @@ public class DegreeData {
 
         byte[] tmp = new byte[4];
         int idx = vertexId - vertexSt;
+        // degreeData中 对于每个顶点放的是入度和出度相邻，在 FastSharder 中存入，且都为 int 类型
+        // 通过 Integer.reverseBytes() 方法把int类型的整数的二进制位按照字节（1个字节等于8位）进行反转
+        // int = 4 byte
+        // RandomAccessFile 中以 byte为单位通过 pos 来访问和修改
+        // 所以
         System.arraycopy(degreeData, idx * 8, tmp, 0, 4);
 
         int indeg = ((tmp[3]  & 0xff) << 24) + ((tmp[2] & 0xff) << 16) + ((tmp[1] & 0xff) << 8) + (tmp[0] & 0xff);

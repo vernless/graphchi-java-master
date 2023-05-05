@@ -5,6 +5,10 @@ import edu.cmu.graphchi.datablocks.DataBlockManager;
 import edu.cmu.graphchi.datablocks.FloatConverter;
 import edu.cmu.graphchi.engine.auxdata.VertexDegree;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
 import static org.junit.Assert.*;
 
 /**
@@ -69,6 +73,7 @@ public class TestChiVertex {
 
         for(int i=nInedges-1; i>=0; i--) {
             ChiEdge<Float> edge = vertex.inEdge(i);
+            //System.out.println(edge.getVertexId() + " --- " + edge.getValue());
             assertTrue(edge.getVertexId() == i * 7 + 5);
             float val = edge.getValue();
             assertEquals(val, (float) Math.sin(i / 2), 1e-10);
@@ -76,6 +81,7 @@ public class TestChiVertex {
 
             assertEquals(vertex.inEdge(i).getValue(), i + 2.5f, 1e-10);
         }
+        System.out.println(vertex.getVertexPtr());
     }
 
     @Test
@@ -116,5 +122,16 @@ public class TestChiVertex {
         }
     }
 
+    @Test
+    public void testReset(){
+        ArrayList<byte[]> a = new ArrayList<byte[]>();
+
+        a.add(0,new byte[1]);
+        a.add(new byte[1]);
+        System.out.println("beforeSize:" + a.size());
+
+        a.set(0, null);
+        System.out.println("AfterSize:" + a.size());
+    }
 
 }

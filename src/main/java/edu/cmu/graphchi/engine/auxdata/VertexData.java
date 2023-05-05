@@ -49,33 +49,38 @@ public class VertexData <VertexDataType> {
         this(nvertices, baseFilename, converter, true);
     }
 
+
+    // 在fastSharder 中首次执行
     public VertexData(int nvertices, String baseFilename,
                       BytesToValueConverter<VertexDataType> converter, boolean _sparse) throws IOException {
         this.baseFilename = baseFilename;
         this.converter = converter;
         this.sparse = _sparse;
 
-        // 未创建该文件
+        // 顶点度数文件 sparse = true：CA_test.txt_degsj.bin.sparse 未创建也不会创建
         File sparseDegreeFile = new File(ChiFilenames.getFilenameOfDegreeData(baseFilename, true));
         // true
         if (sparse && !sparseDegreeFile.exists()) {
             sparse = false;
             logger.info("Sparse vertex data was allowed but sparse degree file did not exist  using dense");
         }
+
+        // 顶点数据文件：CA_test.txt.4Bj.vout
         File vertexfile = new File(ChiFilenames.getFilenameOfVertexData(baseFilename, converter, sparse));
         if (!sparse) {
-//            System.out.println("nvertices:" + nvertices);
             long expectedSize = (long) converter.sizeOf() * (long) nvertices;
 
-            // Check size and create if does not exists
-            // 检查尺寸，如果不存在就创建
             logger.info("Vertex file [" + vertexfile.getAbsolutePath() + "] length: " + vertexfile.length() + ", nvertices=" + nvertices
                     + ", expected size: " + expectedSize);
+            // 如果不存在就创建
+            // 在FastSharder的processVertexValues() 方法中已经创建了，所以engine后面的循环中不会执行下面的代码
             if (!vertexfile.exists() || vertexfile.length() < expectedSize) {
                 if (!vertexfile.exists()) {
+                    //System.out.println("NOexist");
                     vertexfile.createNewFile();
                 }
-                System.out.println("exist");
+                //System.out.println("exist");
+
                 logger.warning("Vertex data file did not exists, creating it. Vertices: " + nvertices);
                 FileOutputStream fos = new FileOutputStream(vertexfile);
                 byte[] tmp = new byte[32678];
@@ -118,12 +123,14 @@ public class VertexData <VertexDataType> {
             long dataStart = (long) firstVertex * (long) converter.sizeOf();
 
             synchronized (vertexDataFile) {
-                // 在存储顶点的
+                // 设置数据在RAFile中存储的起始位置
                 vertexDataFile.seek(dataStart);
+                // 写入数据
                 vertexDataFile.write(data);
-
+                // 释放block的数据:顶点
                 blockManager.release(blockId);
 
+                // 刷新File
                 vertexDataFile.flush();
             }
             logger.info("Vertex data write: " + dataStart + " -- " + (dataStart + data.length));
@@ -133,12 +140,12 @@ public class VertexData <VertexDataType> {
                 vertexDataFile.seek(lastOffset);
                 int sizeOf = converter.sizeOf();
                 for(int i=0; i < index.length; i++) {
-                    vertexDataFile.writeInt(Integer.reverseBytes(index[i]));  // Note: when writing, the random access file does not take byte order into account!
+                    //注意：在写入时，随机存取文件不考虑字节顺序!
+                    vertexDataFile.writeInt(Integer.reverseBytes(index[i]));
                     vertexDataFile.write(data, i * sizeOf, sizeOf);
                 }
                 blockManager.release(blockId);
                 vertexDataFile.flush();
-
             }
         }
     }
@@ -159,14 +166,16 @@ public class VertexData <VertexDataType> {
             if (!sparse) {
                 long dataSize = (long) (vertexEn - vertexSt + 1) *  (long)  converter.sizeOf();
                 long dataStart =  (long) vertexSt *  (long) converter.sizeOf();
-
                 int blockId =  blockManager.allocateBlock((int) dataSize);
+
+                // 一个 byte[]
                 vertexData = blockManager.getRawBlock(blockId);
+                // 在顶点文件中设置dataStart即开始位置
                 vertexDataFile.seek(dataStart);
+                // 从vertexDataFile的开始位置开始，读取vertexData的长度的数据进入vertexData中
                 vertexDataFile.readFully(vertexData);
                 return blockId;
             } else {
-
                 // Have to read in two passes
                 if (lastStart > _vertexSt) {
                     vertexDataFile.seek(0);

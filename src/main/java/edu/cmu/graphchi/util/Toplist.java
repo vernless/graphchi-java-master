@@ -32,6 +32,7 @@ public class Toplist {
         final TreeSet<IdFloat> topList = new TreeSet<IdFloat>(new IdFloat.Comparator());
         VertexAggregator.foreach(numVertices, baseFilename, new FloatConverter(), new ForeachCallback<Float>()  {
             IdFloat least;
+            @Override
             public void callback(int vertexId, Float vertexValue) {
                 if (topList.size() < topN) {
                     topList.add(new IdFloat(vertexId, vertexValue));

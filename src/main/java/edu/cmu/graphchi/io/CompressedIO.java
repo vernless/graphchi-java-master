@@ -36,13 +36,17 @@ public class CompressedIO {
             while (read < nbytes) {
                 read += iis.read(buf, read, nbytes - read);
             }
+            System.out.println("read1:" + read);
             iis.close(); bis.close();
         } else {
             FileInputStream in = new FileInputStream(f);
             int read = 0;
             while (read < nbytes) {
-                read += in.read(buf, read, buf.length - read);
+                int temp = in.read(buf, read, buf.length - read);
+                //System.out.println("temp:" + temp);
+                read += temp;
             }
+            //System.out.println("read2:" + read);
             in.close();
         }
     }

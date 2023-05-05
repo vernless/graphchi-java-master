@@ -112,7 +112,9 @@ import java.nio.channels.WritableByteChannel;
 
   static public List<String> getAllFiles() {
     List<String> result = new ArrayList<String>();
-    if (null == allFiles) return null;
+    if (null == allFiles) {
+        return null;
+    }
     Iterator<String> iter = allFiles.iterator();
     while (iter.hasNext()) {
       result.add( iter.next());
@@ -166,16 +168,19 @@ import java.nio.channels.WritableByteChannel;
   /**
    * The offset in bytes from the file start, of the next read or
    * write operation.
+   * 从文件开始，下一次读或写操作的偏移量（字节）。
    */
   protected long filePosition;
                       
   /**
    * The buffer used for reading the data.
+   * 用于读取数据的缓冲区。
    */
   protected byte buffer[];
 
   /**
    * The offset in bytes of the start of the buffer, from the start of the file.
+   * 缓冲区开始的偏移量，以字节为单位，从文件的开始。
    */
   protected long bufferStart;
 
@@ -184,22 +189,28 @@ import java.nio.channels.WritableByteChannel;
    * the start of the file. This can be calculated from
    * <code>bufferStart + dataSize</code>, but it is cached to speed
    * up the read( ) method.
+   * 缓冲区中的数据结束时与文件开始时的偏移量，以字节计。
+   * 这可以从<code>bufferStart + dataSize</code>计算出来，
+   * 但它被缓存起来以加快read( )方法的速度。
    */
   protected long dataEnd;
 
   /**
    * The size of the data stored in the buffer, in bytes. This may be
    * less than the size of the buffer.
+   * 存储在缓冲区的数据大小，以字节为单位。这可能小于缓冲区的大小。
    */
   protected int dataSize;
 
   /**
    * True if we are at the end of the file.
+   * 如果我们处于文件的末尾，则为真。
    */
   protected boolean endOfFile;
 
   /**
    * The access mode of the file.
+   * 文件的访问模式。
    */
   protected boolean readonly;
 
@@ -210,16 +221,19 @@ import java.nio.channels.WritableByteChannel;
 
   /**
    * True if the data in the buffer has been modified.
+   * 如果缓冲区内的数据被修改，则为真。
    */
   boolean bufferModified = false;
 
   /**
    * make sure file is this long when closed
+   * 确保文件在关闭时是这么长
    */
   private long minLength = 0;
 
   /**
    * stupid extendMode for truncated, yet valid files - old code allowed NOFILL to do this
+   * 愚蠢的扩展模式，用于截断但有效的文件 - 旧代码允许NOFILL这样做
    */
   boolean extendMode = false;
 
@@ -274,6 +288,7 @@ import java.nio.channels.WritableByteChannel;
 
   /**
    * Allow access to the underlying java.io.RandomAccessFile.
+   * 允许访问底层的java.io.RandomAccessFile。
    * WARNING! BROKEN ENCAPSOLATION, DO NOT USE. May change implementation in the future.
    *
    * @return the underlying java.io.RandomAccessFile.
@@ -319,11 +334,14 @@ import java.nio.channels.WritableByteChannel;
   public void close() throws IOException {
     if (debugLeaks) {
       openFiles.remove(location);
-      if (showOpen) System.out.println("  close " + location);
+      if (showOpen) {
+          System.out.println("  close " + location);
+      }
     }
 
-    if (file == null)
-      return;
+    if (file == null) {
+        return;
+    }
 
     // If we are writing and the buffer has been modified, flush the contents
     // of the buffer.
@@ -360,6 +378,7 @@ import java.nio.channels.WritableByteChannel;
 
   /**
    * Set the position in the file for the next read or write.
+   * 为下一次读或写设置文件中的位置。
    *
    * @param pos the offset (in bytes) from the start of the file.
    * @throws IOException if an I/O error occurrs.
@@ -380,6 +399,7 @@ import java.nio.channels.WritableByteChannel;
 
   protected void readBuffer(long pos) throws IOException {
     // If the current buffer is modified, write it to disk.
+      // 如果当前的缓冲区被修改，就把它写到磁盘上。
     if (bufferModified) {
       flush();
     }
@@ -444,7 +464,9 @@ import java.nio.channels.WritableByteChannel;
    * @param endian RandomAccessFile.BIG_ENDIAN or RandomAccessFile.LITTLE_ENDIAN
    */
   public void order(int endian) {
-    if (endian < 0) return;
+    if (endian < 0) {
+        return;
+    }
     this.bigEndian = (endian == BIG_ENDIAN);
   }
 
@@ -502,6 +524,7 @@ import java.nio.channels.WritableByteChannel;
   /**
    * Read a byte of data from the file, blocking until data is
    * available.
+   * 从文件中读取一个字节的数据，阻塞直到数据可用。
    *
    * @return the next byte of data, or -1 if the end of the file is
    *         reached.
@@ -606,8 +629,9 @@ import java.nio.channels.WritableByteChannel;
    */
   public long readToByteChannel(WritableByteChannel dest, long offset, long nbytes) throws IOException {
 
-    if (fileChannel == null)
-      fileChannel = file.getChannel();
+    if (fileChannel == null) {
+        fileChannel = file.getChannel();
+    }
 
     long need = nbytes;
     while (need > 0) {
@@ -650,6 +674,7 @@ import java.nio.channels.WritableByteChannel;
   /**
    * Read up to <code>len</code> bytes into an array, at a specified
    * offset. This will block until at least one byte has been read.
+   * 读取一个数组中的<code>len</code>字节，在指定的偏移量上。这将阻塞，直到至少有一个字节被读取。
    *
    * @param b   the byte array to receive the bytes.
    * @param off the offset in the array where copying will start.
@@ -693,12 +718,17 @@ import java.nio.channels.WritableByteChannel;
    * array. This method reads repeatedly from the file until all the
    * bytes are read. This method blocks until all the bytes are read,
    * the end of the stream is detected, or an exception is thrown.
+   * 从该文件中读取b.length 字节到字节数组。
+   * 这个方法从文件中反复读取，直到所有的字节被读取。
+   * 这个方法会阻塞，直到所有的字节被读取，检测到流的末端，或者抛出一个异常。
    *
    * @param b the buffer into which the data is read.
+   *          读取数据的缓冲区。
    * @throws EOFException if this file reaches the end before reading
    *                      all the bytes.
    * @throws IOException  if an I/O error occurs.
    */
+  @Override
   public final void readFully(byte b[]) throws IOException {
     readFully(b, 0, b.length);
   }
@@ -709,13 +739,14 @@ import java.nio.channels.WritableByteChannel;
    * bytes are read. This method blocks until all the bytes are read,
    * the end of the stream is detected, or an exception is thrown.
    *
-   * @param b   the buffer into which the data is read.
-   * @param off the start offset of the data.
-   * @param len the number of bytes to read.
+   * @param b   the buffer into which the data is read. 读取数据的缓冲区。
+   * @param off the start offset of the data.           数据的起始偏移量。
+   * @param len the number of bytes to read.            要读取的字节数。
    * @throws EOFException if this file reaches the end before reading
    *                      all the bytes.
    * @throws IOException  if an I/O error occurs.
    */
+  @Override
   public final void readFully(byte b[], int off, int len) throws IOException {
     int n = 0;
     while (n < len) {
@@ -738,6 +769,7 @@ import java.nio.channels.WritableByteChannel;
    *                      all the bytes.
    * @throws IOException  if an I/O error occurs.
    */
+  @Override
   public int skipBytes(int n) throws IOException {
     seek(getFilePointer() + n);
     return n;
@@ -874,6 +906,7 @@ import java.nio.channels.WritableByteChannel;
    * @param b the data.
    * @throws IOException if an I/O error occurs.
    */
+  @Override
   public void write(byte b[]) throws IOException {
     writeBytes(b, 0, b.length);
   }

@@ -59,11 +59,13 @@ public class ShardIndex {
         int lastEdgePointer = 0;
         for(int j=0; j<vertices.length; j++) {
             if (edgePointer[j] - lastEdgePointer >= edgeDistance) {
+                System.out.println("edgePointer[" + j + "] - lastEdgePointer:" + (edgePointer[j] - lastEdgePointer));
                  spIdx.add(new IndexEntry(vertices[j], edgePointer[j], fileOffset[j]));
                  lastEdgePointer = edgePointer[j];
             }
 
         }
+        // System.out.println(spIdx.get(0))   0 0
         return spIdx;
     }
 

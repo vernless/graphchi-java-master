@@ -126,16 +126,18 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
         }
 
         /* Run GraphChi */
-        Long start = System.currentTimeMillis();
+
         GraphChiEngine<Float, Float> engine = new GraphChiEngine<Float, Float>(baseFilename, nShards);
         engine.setEdataConverter(new FloatConverter());
         engine.setVertexDataConverter(new FloatConverter());
+        // 不能修改入边
         engine.setModifiesInedges(false); // Important optimization
-        engine.run(new Pagerank(), 4);
 
+        Long start = System.currentTimeMillis();
+        engine.run(new Pagerank(), 100);
         Long end = System.currentTimeMillis();
         logger.info("处理时间：" + (end - start) * 0.001 + " secs.");
-        logger.info("Ready.");
+
         /* Output results */
         int i = 0;
         VertexIdTranslate trans = engine.getVertexIdTranslate();
